@@ -1,0 +1,84 @@
+{
+  "prompts": {
+    "lab_setup": {
+      "title": "DevOps Lab Environment Setup",
+      "description": "Guide for setting up a complete DevOps CI/CD learning environment",
+      "steps": [
+        "Install Docker and Docker Compose on local machine",
+        "Set up GitHub repository for source code management",
+        "Install and configure Jenkins for CI/CD pipeline",
+        "Deploy local Kubernetes cluster (minikube or kind) or provision AWS EKS",
+        "Install and configure ArgoCD for GitOps deployment",
+        "Set up Harbor registry for container image storage",
+        "Install Maven for Java application builds",
+        "Configure SonarQube for code quality analysis",
+        "Install Ansible for configuration management",
+        "Set up Helm for Kubernetes package management"
+      ]
+    },
+    "learning_path": {
+      "title": "Recommended Learning Sequence",
+      "description": "Structured approach to learning DevOps CI/CD tools",
+      "phases": [
+        {
+          "phase": 1,
+          "name": "Foundations",
+          "tools": ["Git", "GitHub", "Linux basics", "Docker"],
+          "duration": "2-3 weeks"
+        },
+        {
+          "phase": 2,
+          "name": "Build and Test",
+          "tools": ["Maven", "Jenkins", "SonarQube"],
+          "duration": "2-3 weeks"
+        },
+        {
+          "phase": 3,
+          "name": "Container Orchestration",
+          "tools": ["Kubernetes", "AWS EKS", "Helm Charts"],
+          "duration": "3-4 weeks"
+        },
+        {
+          "phase": 4,
+          "name": "Configuration and Deployment",
+          "tools": ["Ansible", "ArgoCD", "Harbor"],
+          "duration": "2-3 weeks"
+        },
+        {
+          "phase": 5,
+          "name": "Integration and Practice",
+          "tools": ["All tools integrated in complete pipeline"],
+          "duration": "4-6 weeks"
+        }
+      ]
+    },
+    "pipeline_design": {
+      "title": "CI/CD Pipeline Design Prompt",
+      "description": "Template for designing a complete CI/CD pipeline",
+      "components": [
+        "Source code management (GitHub)",
+        "Build automation (Jenkins + Maven)",
+        "Code quality analysis (SonarQube)",
+        "Container image creation (Docker)",
+        "Image registry (Harbor)",
+        "Container orchestration (Kubernetes/EKS)",
+        "Deployment automation (ArgoCD + Helm)",
+        "Configuration management (Ansible)"
+      ]
+    },
+    "troubleshooting": {
+      "title": "Common Troubleshooting Scenarios",
+      "description": "Prompts for diagnosing and resolving common DevOps issues",
+      "scenarios": [
+        "Jenkins pipeline failures",
+        "Docker container networking issues",
+        "Kubernetes pod startup problems",
+        "ArgoCD sync failures",
+        "Maven dependency resolution errors",
+        "SonarQube integration issues",
+        "Harbor registry connectivity problems",
+        "Ansible playbook execution failures"
+      ]
+    }
+  }
+}

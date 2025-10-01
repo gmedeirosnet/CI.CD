@@ -1,0 +1,67 @@
+{
+  "learning_modes": {
+    "beginner": {
+      "description": "For those new to DevOps and CI/CD concepts",
+      "approach": "Step-by-step guided tutorials with detailed explanations",
+      "tools_order": [
+        "Git",
+        "GitHub",
+        "Docker",
+        "Maven",
+        "Jenkins"
+      ],
+      "focus": "Understanding fundamental concepts before tool implementation",
+      "time_commitment": "20-30 hours per week for 8-12 weeks"
+    },
+    "intermediate": {
+      "description": "For those with basic DevOps knowledge and some tool experience",
+      "approach": "Hands-on labs with less guidance, focusing on integration",
+      "tools_order": [
+        "Jenkins",
+        "Docker",
+        "SonarQube",
+        "Kubernetes",
+        "Helm Charts",
+        "ArgoCD"
+      ],
+      "focus": "Building complete pipelines and understanding tool integration",
+      "time_commitment": "15-25 hours per week for 6-8 weeks"
+    },
+    "advanced": {
+      "description": "For experienced practitioners looking to master specific tools or scenarios",
+      "approach": "Complex real-world scenarios, optimization, and best practices",
+      "tools_order": [
+        "AWS EKS",
+        "ArgoCD",
+        "Harbor",
+        "Ansible",
+        "Helm Charts",
+        "Jenkins (advanced pipelines)"
+      ],
+      "focus": "Production-ready implementations, security, scalability, and automation",
+      "time_commitment": "10-20 hours per week for 4-6 weeks"
+    }
+  },
+  "practice_modes": {
+    "tutorial": {
+      "description": "Follow structured guides with clear instructions",
+      "suitable_for": ["Beginner", "Intermediate"],
+      "output": "Working examples with understanding of each step"
+    },
+    "project_based": {
+      "description": "Build a complete application with full CI/CD pipeline",
+      "suitable_for": ["Intermediate", "Advanced"],
+      "output": "End-to-end functional pipeline from code commit to production deployment"
+    },
+    "challenge": {
+      "description": "Solve specific problems or implement requirements without detailed guidance",
+      "suitable_for": ["Advanced"],
+      "output": "Problem-solving skills and independent implementation capability"
+    },
+    "exploratory": {
+      "description": "Experiment with tools and configurations to understand capabilities",
+      "suitable_for": ["All levels"],
+      "output": "Deep understanding of tool capabilities and limitations"
+    }
+  }
+}

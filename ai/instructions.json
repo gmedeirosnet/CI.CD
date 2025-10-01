@@ -1,0 +1,27 @@
+{
+  "project": "DevOps CI/CD Learning Laboratory",
+  "objective": "Create a LAB environment for learning DevOps CI/CD deployment tools",
+  "guidelines": [
+    "Store all AI-related files (instructions, prompts, tool sets, modes, documentation) in the ai directory",
+    "Create all AI files in JSON format",
+    "Create documentation files in the docs directory",
+    "Do not run Git commands without explicit permission",
+    "Do not use emojis in documentation"
+  ],
+  "focus_tools": [
+    "ArgoCD",
+    "AWS EKS",
+    "Ansible",
+    "Docker",
+    "GitHub",
+    "Harbor",
+    "Helm Charts",
+    "Maven",
+    "Jenkins",
+    "SonarQube"
+  ],
+  "reference_materials": {
+    "study_plan": "docs/StudyPlan.md",
+    "notebook_reference": "https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464"
+  }
+}

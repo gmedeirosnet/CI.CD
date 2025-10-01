@@ -1,0 +1,84 @@
+{
+  "tools": [
+    {
+      "name": "ArgoCD",
+      "category": "Continuous Delivery",
+      "description": "Declarative GitOps continuous delivery tool for Kubernetes",
+      "use_case": "Automate application deployment and lifecycle management in Kubernetes",
+      "learning_priority": "high",
+      "prerequisites": ["Kubernetes", "Git", "YAML"]
+    },
+    {
+      "name": "AWS EKS",
+      "category": "Container Orchestration",
+      "description": "Amazon Elastic Kubernetes Service - managed Kubernetes service",
+      "use_case": "Deploy, manage, and scale containerized applications using Kubernetes on AWS",
+      "learning_priority": "high",
+      "prerequisites": ["Kubernetes", "Docker", "AWS basics"]
+    },
+    {
+      "name": "Ansible",
+      "category": "Infrastructure as Code / Configuration Management",
+      "description": "Open-source automation tool for configuration management, application deployment, and task automation",
+      "use_case": "Automate infrastructure provisioning and configuration management",
+      "learning_priority": "high",
+      "prerequisites": ["YAML", "SSH", "Linux basics"]
+    },
+    {
+      "name": "Docker",
+      "category": "Containerization",
+      "description": "Platform for developing, shipping, and running applications in containers",
+      "use_case": "Create isolated, portable application environments and deployable artifacts",
+      "learning_priority": "critical",
+      "prerequisites": ["Linux basics", "Networking fundamentals"]
+    },
+    {
+      "name": "GitHub",
+      "category": "Version Control / Source Management",
+      "description": "Web-based Git repository hosting service with collaboration features",
+      "use_case": "Version control, source code management, CI/CD integration, collaboration",
+      "learning_priority": "critical",
+      "prerequisites": ["Git basics"]
+    },
+    {
+      "name": "Harbor",
+      "category": "Artifact Management",
+      "description": "Open-source container image registry with security, identity, and management features",
+      "use_case": "Store, sign, and scan container images",
+      "learning_priority": "medium",
+      "prerequisites": ["Docker", "Container concepts"]
+    },
+    {
+      "name": "Helm Charts",
+      "category": "Kubernetes Package Manager",
+      "description": "Package manager for Kubernetes that helps define, install, and upgrade complex Kubernetes applications",
+      "use_case": "Manage Kubernetes application deployments with templating and versioning",
+      "learning_priority": "high",
+      "prerequisites": ["Kubernetes", "YAML"]
+    },
+    {
+      "name": "Maven",
+      "category": "Build Tool / Package Manager",
+      "description": "Build automation and project management tool primarily for Java projects",
+      "use_case": "Build, package, and manage Java application dependencies",
+      "learning_priority": "medium",
+      "prerequisites": ["Java basics", "XML"]
+    },
+    {
+      "name": "Jenkins",
+      "category": "Continuous Integration / Continuous Delivery",
+      "description": "Open-source automation server for building, testing, and deploying software",
+      "use_case": "Design and implement CI/CD pipelines, automate builds, tests, and deployments",
+      "learning_priority": "critical",
+      "prerequisites": ["Basic programming", "Version control"]
+    },
+    {
+      "name": "SonarQube",
+      "category": "Code Quality / Security",
+      "description": "Platform for continuous inspection of code quality and security vulnerabilities",
+      "use_case": "Perform static code analysis, manage code quality, and identify security issues",
+      "learning_priority": "high",
+      "prerequisites": ["Programming basics", "Code quality concepts"]
+    }
+  ]
+}
