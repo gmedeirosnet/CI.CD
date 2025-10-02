@@ -130,18 +130,18 @@ case $auth_choice in
         read -p "Enter path to SSH private key [~/.ssh/id_rsa]: " ssh_key
         ssh_key=${ssh_key:-~/.ssh/id_rsa}
         ssh_key="${ssh_key/#\~/$HOME}"
-        
+
         if [ ! -f "$ssh_key" ]; then
             echo -e "${RED}Error: SSH key not found at $ssh_key${NC}"
             exit 1
         fi
-        
+
         # Convert HTTPS URL to SSH format if needed
         SSH_REPO_URL="$REPO_URL"
         if [[ $REPO_URL =~ ^https://github\.com/(.+)$ ]]; then
             SSH_REPO_URL="git@github.com:${BASH_REMATCH[1]}.git"
         fi
-        
+
         argocd repo add "$SSH_REPO_URL" \
             --ssh-private-key-path "$ssh_key" \
             --name "${REPO_NAME}"

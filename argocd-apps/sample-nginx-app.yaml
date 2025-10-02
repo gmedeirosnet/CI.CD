@@ -7,18 +7,18 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  
+
   # Source repository
   source:
     repoURL: https://github.com/gmedeirosnet/CI.CD
     targetRevision: HEAD
     path: k8s/sample-app
-  
+
   # Destination cluster and namespace
   destination:
     server: https://kubernetes.default.svc
     namespace: default
-  
+
   # Sync policy
   syncPolicy:
     automated:
