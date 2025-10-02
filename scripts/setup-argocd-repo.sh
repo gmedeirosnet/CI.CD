@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# ArgoCD Quick Setup Script for CI.CD Repository
-# Repository: https://github.com/gmedeirosnet/CI.CD
+# ArgoCD Quick Setup Script
+# Connect your GitHub repository to ArgoCD
 
 set -e
 
 echo "=========================================="
-echo "ArgoCD Setup for CI.CD Repository"
+echo "ArgoCD Repository Setup"
 echo "=========================================="
 echo ""
 
@@ -71,9 +71,31 @@ else
 fi
 echo ""
 
-# Step 5: Add GitHub repository
-echo -e "${YELLOW}Step 5: Adding GitHub repository...${NC}"
-REPO_URL="https://github.com/gmedeirosnet/CI.CD"
+# Step 5: Get repository information from user
+echo -e "${YELLOW}Step 5: Repository Configuration${NC}"
+echo ""
+read -p "Enter your GitHub repository URL (e.g., https://github.com/username/repo): " REPO_URL
+
+# Validate repository URL
+if [ -z "$REPO_URL" ]; then
+    echo -e "${RED}Error: Repository URL cannot be empty${NC}"
+    exit 1
+fi
+
+# Extract username and repo name for display
+if [[ $REPO_URL =~ github\.com[:/]([^/]+)/([^/\.]+) ]]; then
+    GITHUB_USER="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+    echo -e "${GREEN}✓ Repository: $GITHUB_USER/$REPO_NAME${NC}"
+else
+    echo -e "${YELLOW}Warning: Could not parse GitHub username/repo from URL${NC}"
+    GITHUB_USER=""
+    REPO_NAME="cicd-lab"
+fi
+echo ""
+
+# Step 6: Add GitHub repository
+echo -e "${YELLOW}Step 6: Adding GitHub repository...${NC}"
 
 # Check if repository already exists
 if argocd repo list | grep -q "$REPO_URL"; then
@@ -92,39 +114,43 @@ read -p "Enter choice [1-3]: " auth_choice
 case $auth_choice in
     1)
         echo -e "${YELLOW}Adding as public repository...${NC}"
-        argocd repo add "$REPO_URL" --name cicd-lab
+        argocd repo add "$REPO_URL" --name "${REPO_NAME}"
         ;;
     2)
-        read -p "Enter your GitHub username [gmedeirosnet]: " github_user
-        github_user=${github_user:-gmedeirosnet}
+        read -p "Enter your GitHub username [${GITHUB_USER:-username}]: " input_user
+        github_user=${input_user:-${GITHUB_USER:-username}}
         read -sp "Enter your GitHub Personal Access Token: " github_token
         echo ""
         argocd repo add "$REPO_URL" \
             --username "$github_user" \
             --password "$github_token" \
-            --name cicd-lab
+            --name "${REPO_NAME}"
         ;;
     3)
         read -p "Enter path to SSH private key [~/.ssh/id_rsa]: " ssh_key
         ssh_key=${ssh_key:-~/.ssh/id_rsa}
         ssh_key="${ssh_key/#\~/$HOME}"
-
+        
         if [ ! -f "$ssh_key" ]; then
             echo -e "${RED}Error: SSH key not found at $ssh_key${NC}"
             exit 1
         fi
-
-        argocd repo add "git@github.com:gmedeirosnet/CI.CD.git" \
+        
+        # Convert HTTPS URL to SSH format if needed
+        SSH_REPO_URL="$REPO_URL"
+        if [[ $REPO_URL =~ ^https://github\.com/(.+)$ ]]; then
+            SSH_REPO_URL="git@github.com:${BASH_REMATCH[1]}.git"
+        fi
+        
+        argocd repo add "$SSH_REPO_URL" \
             --ssh-private-key-path "$ssh_key" \
-            --name cicd-lab
+            --name "${REPO_NAME}"
         ;;
     *)
         echo -e "${RED}Invalid choice${NC}"
         exit 1
         ;;
-esac
-
-if [ $? -eq 0 ]; then
+esacif [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Repository added successfully${NC}"
 else
     echo -e "${RED}Error: Failed to add repository${NC}"
@@ -132,8 +158,8 @@ else
 fi
 echo ""
 
-# Step 6: Verify repository connection
-echo -e "${YELLOW}Step 6: Verifying repository connection...${NC}"
+# Step 7: Verify repository connection
+echo -e "${YELLOW}Step 7: Verifying repository connection...${NC}"
 sleep 2
 if argocd repo list | grep -q "Successful"; then
     echo -e "${GREEN}✓ Repository connection verified${NC}"
@@ -143,8 +169,8 @@ else
 fi
 echo ""
 
-# Step 7: Add Kind cluster
-echo -e "${YELLOW}Step 7: Checking cluster configuration...${NC}"
+# Step 8: Add Kind cluster
+echo -e "${YELLOW}Step 8: Checking cluster configuration...${NC}"
 CURRENT_CONTEXT=$(kubectl config current-context)
 echo "  Current context: $CURRENT_CONTEXT"
 
