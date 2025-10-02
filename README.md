@@ -19,7 +19,7 @@ This repository provides a complete learning experience for mastering DevOps CI/
 
 ### Containerization & Orchestration
 - **Docker** - Container platform for application packaging
-- **AWS EKS** - Managed Kubernetes service
+- **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
 
 ### Configuration & Analysis
@@ -39,7 +39,7 @@ CI.CD/
 │
 ├── docs/                        # Comprehensive documentation
 │   ├── ArgoCD.md               # ArgoCD guide
-│   ├── AWS-EKS.md              # AWS EKS guide
+│   ├── Kind-K8s.md             # Kind (K8s in Docker) guide
 │   ├── Ansible.md              # Ansible guide
 │   ├── Docker.md               # Docker guide
 │   ├── Harbor.md               # Harbor guide
@@ -60,9 +60,8 @@ CI.CD/
 ### Prerequisites
 - 16GB RAM minimum (32GB recommended)
 - 50GB free disk space
-- macOS, Linux, or Windows with WSL2
-- Docker Desktop installed
-- AWS account (for EKS labs)
+- macOS (M4 recommended), Linux, or Windows with WSL2
+- Docker Desktop installed (required for Kind)
 - GitHub account
 
 ### Getting Started
@@ -101,14 +100,11 @@ CI.CD/
 - SonarQube analysis
 
 ### Phase 3: Container Orchestration (3-4 weeks)
-- Kubernetes basics
-- AWS EKS
-- Helm charts
+- Kubernetes
+- Kind (local K8s clusters)
+- Helm
 
 ### Phase 4: Configuration and Deployment (2-3 weeks)
-- Ansible automation
-- ArgoCD GitOps
-- Harbor registry
 
 ### Phase 5: Integration (4-6 weeks)
 - Complete pipeline
@@ -122,7 +118,7 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                          ↓
                     Docker Build → Harbor
                          ↓
-                    Helm Package → ArgoCD → AWS EKS
+                    Helm Package → ArgoCD → Kind K8s
                          ↓
                     Ansible Configuration
 ```
@@ -218,7 +214,7 @@ This is a learning laboratory. Contributions welcome:
 - [Maven](https://maven.apache.org/guides/)
 - [SonarQube](https://docs.sonarqube.org/)
 - [Harbor](https://goharbor.io/docs/)
-- [AWS EKS](https://docs.aws.amazon.com/eks/)
+- [Kind](https://kind.sigs.k8s.io/)
 
 ### Study Reference
 - [NotebookLM Study Guide](https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464)

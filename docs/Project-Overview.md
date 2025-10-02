@@ -16,7 +16,7 @@ JSON configuration files for AI-assisted learning and automation:
 ### Documentation Directory (`/docs`)
 Comprehensive guides for each tool:
 - `ArgoCD.md` - GitOps continuous delivery for Kubernetes
-- `AWS-EKS.md` - Amazon Elastic Kubernetes Service guide
+- `Kind-K8s.md` - Local Kubernetes clusters using Docker (MacOS M4)
 - `Ansible.md` - Configuration management and automation
 - `Docker.md` - Container platform and best practices
 - `Harbor.md` - Container image registry with security features
@@ -40,7 +40,7 @@ Comprehensive guides for each tool:
 
 ### 3. Containerization and Orchestration
 - **Docker**: Container platform for application packaging
-- **AWS EKS**: Managed Kubernetes service
+- **Kind (K8s in Docker)**: Local Kubernetes clusters for development and testing
 - **Helm Charts**: Kubernetes application package manager
 
 ### 4. Configuration and Analysis
@@ -63,7 +63,7 @@ Comprehensive guides for each tool:
 
 ### Phase 3: Container Orchestration (3-4 weeks)
 - Kubernetes concepts and architecture
-- AWS EKS cluster management
+- Kind local cluster management
 - Helm chart development
 - Container networking and storage
 
@@ -104,7 +104,7 @@ Comprehensive guides for each tool:
        │
        ├─► Helm Package ────► Chart Repository
        │
-       ├─► ArgoCD Sync ────► AWS EKS Deploy
+       ├─► ArgoCD Sync ────► Kind K8s Deploy
        │
        └─► Ansible Configure ────► Post-Deploy Tasks
                 │
@@ -126,7 +126,7 @@ Comprehensive guides for each tool:
 - Helm chart packaging and versioning
 - GitOps deployment with ArgoCD
 - Configuration management with Ansible
-- Kubernetes orchestration on AWS EKS
+- Kubernetes orchestration on Kind (local clusters)
 
 ### Quality Assurance
 - Code quality gates with SonarQube
@@ -159,9 +159,9 @@ Comprehensive guides for each tool:
 - For production: 32GB+ RAM, 100GB+ disk space
 
 ### Software Requirements
-- Operating System: macOS, Linux, or Windows with WSL2
-- Docker Desktop or Docker Engine
-- AWS account (for EKS)
+- Operating System: macOS (M4 recommended), Linux, or Windows with WSL2
+- Docker Desktop (required for Kind)
+- Kind (Kubernetes in Docker)
 - GitHub account
 - Basic command-line knowledge
 
@@ -212,7 +212,7 @@ By completing this lab, you should be able to:
 - ✓ Package applications with Helm
 - ✓ Implement GitOps with ArgoCD
 - ✓ Automate configuration with Ansible
-- ✓ Manage AWS EKS clusters
+- ✓ Manage local Kubernetes clusters with Kind
 - ✓ Troubleshoot CI/CD pipeline issues
 - ✓ Implement security best practices
 - ✓ Monitor and optimize deployments
@@ -280,13 +280,13 @@ This is a learning laboratory. Feel free to:
 - Jenkins: https://www.jenkins.io/doc/
 - Docker: https://docs.docker.com/
 - Kubernetes: https://kubernetes.io/docs/
+- Kind: https://kind.sigs.k8s.io/
 - ArgoCD: https://argo-cd.readthedocs.io/
 - Helm: https://helm.sh/docs/
 - Ansible: https://docs.ansible.com/
 - Maven: https://maven.apache.org/guides/
 - SonarQube: https://docs.sonarqube.org/
 - Harbor: https://goharbor.io/docs/
-- AWS EKS: https://docs.aws.amazon.com/eks/
 
 ### Community Resources
 - Stack Overflow

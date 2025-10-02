@@ -10,7 +10,7 @@ The study plan is in docs/StudyPlan.md
 The Study reference is in https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464
 
 # TOOLS
-ArgoCD, AWS EKS, Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube
+ArgoCD, Kind (K8s in Docker), Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube
 
 # INSTRUCTIONS
 Create the documentation files only in the ".docs" directory.

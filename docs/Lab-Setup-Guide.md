@@ -1,12 +1,12 @@
 # Complete CI/CD Pipeline Lab Setup
 
 ## Overview
-This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using all the focus tools: ArgoCD, AWS EKS, Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
+This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using all the focus tools: ArgoCD, Kind (K8s in Docker), Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
 
 ## Prerequisites
-- macOS, Linux, or Windows with WSL2
+- macOS (M4 recommended), Linux, or Windows with WSL2
 - At least 16GB RAM and 50GB free disk space
-- AWS account (for EKS)
+- Docker Desktop installed (required for Kind)
 - GitHub account
 - Basic understanding of command line
 - Administrator/sudo access
@@ -18,7 +18,7 @@ Developer → GitHub → Jenkins → Maven Build → SonarQube Analysis
                           ↓
                      Docker Build → Harbor Registry
                           ↓
-                     Helm Package → ArgoCD → AWS EKS
+                     Helm Package → ArgoCD → Kind K8s Cluster
                           ↓
                      Ansible (Configuration Management)
 ```
@@ -230,50 +230,67 @@ sudo ./install.sh --with-trivy
 # Create project: cicd-demo
 ```
 
-## Phase 3: AWS EKS Setup
+## Phase 3: Kind (Kubernetes in Docker) Setup
 
-### 3.1 Install AWS CLI and eksctl
+### 3.1 Install Kind and kubectl
 ```bash
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
-sudo installer -pkg AWSCLIV2.pkg -target /
+# Install Kind via Homebrew (recommended for macOS M4)
+brew install kind
 
-# Configure AWS
-aws configure
-# Enter: Access Key ID, Secret Access Key, Region (us-west-2), Output format (json)
-
-# Install eksctl
-brew tap weaveworks/tap
-brew install weaveworks/tap/eksctl
+# Verify Kind installation
+kind version
 
 # Install kubectl
 brew install kubectl
+
+# Verify kubectl installation
+kubectl version --client
 ```
 
-### 3.2 Create EKS Cluster
+### 3.2 Create Kind Cluster
 ```bash
-# Create cluster (takes 15-20 minutes)
-eksctl create cluster \
-  --name cicd-demo-cluster \
-  --region us-west-2 \
-  --nodegroup-name standard-workers \
-  --node-type t3.medium \
-  --nodes 2 \
-  --nodes-min 1 \
-  --nodes-max 4 \
-  --managed
+# Create a configuration file for multi-node cluster
+cat > kind-config.yaml << 'EOF'
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cicd-demo-cluster
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30000
+    hostPort: 30000
+    protocol: TCP
+  - containerPort: 30001
+    hostPort: 30001
+    protocol: TCP
+  - containerPort: 30002
+    hostPort: 30002
+    protocol: TCP
+- role: worker
+- role: worker
+EOF
 
-# Update kubeconfig
-aws eks update-kubeconfig --name cicd-demo-cluster --region us-west-2
+# Create cluster (takes 1-2 minutes)
+kind create cluster --config kind-config.yaml
 
-# Verify
+# Verify cluster
+kubectl cluster-info --context kind-cicd-demo-cluster
 kubectl get nodes
 kubectl get pods --all-namespaces
+
+# Install NGINX Ingress Controller for Kind
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+# Wait for ingress controller to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=90s
 ```
 
 ## Phase 4: ArgoCD Installation
 
-### 4.1 Install ArgoCD on EKS
+### 4.1 Install ArgoCD on Kind Cluster
 ```bash
 # Create namespace
 kubectl create namespace argocd
@@ -305,8 +322,12 @@ argocd repo add https://github.com/yourusername/cicd-demo.git \
   --username yourusername \
   --password your-token
 
-# Add EKS cluster (if not already default)
-argocd cluster add cicd-demo-cluster
+# Add Kind cluster (should already be default context)
+kubectl config current-context
+# Should show: kind-cicd-demo-cluster
+
+# If needed, register cluster with ArgoCD
+argocd cluster add kind-cicd-demo-cluster
 ```
 
 ## Phase 5: Helm Charts Creation
@@ -364,13 +385,13 @@ cat > inventory.ini << 'EOF'
 [local]
 localhost ansible_connection=local
 
-[eks]
-eks-node-1 ansible_host=<NODE_IP>
+[kind-nodes]
+kind-worker-1 ansible_host=<NODE_IP>
 EOF
 
 cat > deploy.yml << 'EOF'
 ---
-- name: Configure EKS environment
+- name: Configure Kind K8s environment
   hosts: local
   tasks:
     - name: Ensure kubectl is installed
@@ -640,12 +661,13 @@ curl http://<EXTERNAL-IP>:80
 # Delete ArgoCD application
 argocd app delete cicd-demo
 
-# Delete EKS cluster
-eksctl delete cluster --name cicd-demo-cluster --region us-west-2
+# Delete Kind cluster
+kind delete cluster --name cicd-demo-cluster
 
 # Stop Docker containers
 docker-compose -f sonar-compose.yml down -v
 docker stop jenkins harbor
+
 
 # Remove Docker volumes
 docker volume prune -f
@@ -657,20 +679,35 @@ docker volume prune -f
 1. Jenkins can't connect to Docker: Ensure Docker socket is mounted
 2. Harbor SSL errors: Use http for local testing
 3. ArgoCD sync fails: Check GitHub credentials and repository access
-4. EKS nodes not ready: Wait longer or check AWS quotas
-5. SonarQube out of memory: Increase Docker memory limits
+4. Kind cluster fails to start: Restart Docker Desktop and try again
+5. SonarQube out of memory: Increase Docker Desktop memory limits to 8GB+
+6. Pods not starting in Kind: Check `kubectl describe pod <name>` and verify images are loaded
+7. Port conflicts: Check if ports 30000-30002, 8080, 8090 are already in use
+
+### Kind-Specific Issues
+```bash
+# View Kind cluster logs
+kind export logs --name cicd-demo-cluster
+
+# Reload Docker images into Kind
+kind load docker-image <image:tag> --name cicd-demo-cluster
+
+# Access Kind node directly
+docker exec -it cicd-demo-cluster-control-plane bash
+```
 
 ## Next Steps
-1. Add monitoring with Prometheus and Grafana
-2. Implement blue-green deployments
+1. Add monitoring with Prometheus and Grafana on Kind
+2. Implement blue-green deployments in local cluster
 3. Add integration tests
-4. Configure backup and disaster recovery
-5. Implement secrets management with Vault
-6. Add API gateway
-7. Configure service mesh (Istio)
+4. Configure backup strategies for local development
+5. Implement secrets management with sealed-secrets
+6. Add API gateway (Kong or Ambassador)
+7. Experiment with service mesh (Istio/Linkerd) on Kind
 
 ## References
 - Complete lab documentation in docs/
 - Tool-specific guides for each component
-- Example code repository
+- Kind documentation: https://kind.sigs.k8s.io/
 - Troubleshooting guides
+

@@ -26,7 +26,7 @@ Version control is an essential tool for CD and DevOps adoption. It serves as a 
 These tools enable applications to run consistently across various environments, supporting scalability and deployment complexity.
 
 *   **Docker** is key for containerization and is crucial for isolating applications and creating deployable artifacts. It can be used to create both SaaS (Software as a Service) and IaaS (Infrastructure as a Service). It is a technical tool used in the context of CI/CD.
-*   **Kubernetes (K8s)** and specific distributions like **AWS EKS** are container orchestration tools used to manage and scale containerized applications. Learning Kubernetes is complex and requires significant time investment to understand advanced use cases and integration with other tools like Jenkins and Terraform.
+*   **Kubernetes (K8s)** and specific distributions like **Kind (Kubernetes in Docker)** are container orchestration tools used to manage and scale containerized applications. Kind is perfect for local development on MacOS (especially M4 chips), allowing you to run Kubernetes clusters entirely within Docker Desktop without cloud costs or complexity. Learning Kubernetes is complex and requires significant time investment to understand advanced use cases and integration with other tools like Jenkins and Terraform.
 
 ### 4. Infrastructure as Code (IaC) and Configuration Management
 
