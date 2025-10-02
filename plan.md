@@ -6,6 +6,7 @@ Create the prompt, instructions, and all files in JSON format.
 The objective is create a LAB to learning DevOps CI/CD deployments tools.
 
 # DOCUMENTATION
+Documentations should only be create in the docs/ directory
 The study plan is in docs/StudyPlan.md
 The Study reference is in https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464
 
