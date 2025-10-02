@@ -2,7 +2,7 @@ version: "3"
 
 services:
   sonarqube:
-    image: sonarqube:lts-community
+    image: sonarqube:latest
     container_name: sonarqube
     networks:
       - cicd-network
