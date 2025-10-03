@@ -111,8 +111,13 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     script {
-                        def mvnCmd = sh(script: 'command -v mvn', returnStatus: true) == 0 ? 'mvn' : './mvnw'
-                        sh "${mvnCmd} sonar:sonar"
+                        sh '''
+                            if command -v mvn >/dev/null 2>&1; then
+                                mvn sonar:sonar
+                            else
+                                ./mvnw sonar:sonar
+                            fi
+                        '''
                     }
                 }
             }
@@ -133,7 +138,10 @@ pipeline {
                         docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
                         docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
                                    ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
-```
+                    """
+                }
+            }
+        }
 
         stage('Push to Harbor') {
             steps {
@@ -143,7 +151,7 @@ pipeline {
                     passwordVariable: 'PASS'
                 )]) {
                     sh """
-                        echo \${PASS} | docker login ${HARBOR_REGISTRY} -u \${USER} --password-stdin
+                        echo \$PASS | docker login ${HARBOR_REGISTRY} -u \$USER --password-stdin
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                     """
