@@ -1,5 +1,12 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.9-eclipse-temurin-21'
+            args '-v $HOME/.m2:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock --network host'
+            // Network host mode allows access to localhost services (Harbor, SonarQube)
+            // Docker socket mount allows building Docker images inside the container
+        }
+    }
 
     environment {
         // Harbor
@@ -14,17 +21,7 @@ pipeline {
         // Kubernetes
         // KUBECONFIG = credentials('kubeconfig')  // Commented out - configure in Jenkins Credentials if needed
         NAMESPACE = 'default'
-
-        // Use system Maven and Java
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'  // Adjust path as needed
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
     }
-
-    // Remove tools block if not configured in Jenkins
-    // tools {
-    //     maven 'Maven 3.9'
-    //     jdk 'JDK21'
-    // }
 
     stages {
         stage('Checkout') {
