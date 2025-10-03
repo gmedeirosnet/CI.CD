@@ -143,7 +143,7 @@ pipeline {
                     passwordVariable: 'PASS'
                 )]) {
                     sh """
-                        echo \$PASS | docker login ${HARBOR_REGISTRY} -u \$USER --password-stdin
+                        echo \${PASS} | docker login ${HARBOR_REGISTRY} -u \${USER} --password-stdin
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                     """
