@@ -12,7 +12,7 @@ pipeline {
         SONAR_HOST = 'http://sonarqube:9000'
 
         // Kubernetes
-        KUBECONFIG = credentials('kubeconfig')
+        // KUBECONFIG = credentials('kubeconfig')  // Commented out - configure in Jenkins Credentials if needed
         NAMESPACE = 'default'
 
         // Use system Maven and Java
@@ -154,7 +154,8 @@ pipeline {
             echo 'Pipeline failed!'
         }
         always {
-            cleanWs()
+            echo 'Pipeline completed.'
+            // cleanWs() requires node context - remove or move to stage-level post block
         }
     }
 }
