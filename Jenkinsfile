@@ -115,13 +115,10 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        if command -v mvn >/dev/null 2>&1; then
-                            mvn sonar:sonar
-                        else
-                            ./mvnw sonar:sonar
-                        fi
-                    '''
+                    script {
+                        def mvnCmd = sh(script: 'command -v mvn', returnStatus: true) == 0 ? 'mvn' : './mvnw'
+                        sh "${mvnCmd} sonar:sonar"
+                    }
                 }
             }
         }
