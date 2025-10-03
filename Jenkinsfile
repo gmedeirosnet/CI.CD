@@ -102,6 +102,11 @@ pipeline {
             }
             post {
                 always {
+                    '''
+                }
+            }
+            post {
+                always {
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 }
             }
@@ -138,10 +143,7 @@ pipeline {
                         docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
                         docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
                                    ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
-                    """
-                }
-            }
-        }
+```
 
         stage('Push to Harbor') {
             steps {
