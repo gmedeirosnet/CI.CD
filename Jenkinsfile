@@ -17,33 +17,48 @@ pipeline {
     }
 
     stages {
-        stage('Setup Environment') {
+        stage('Setup Maven Wrapper') {
             steps {
                 script {
                     sh '''
-                        echo "Checking for required tools..."
+                        echo "=== Checking for Maven ==="
 
-                        # Check if Maven is installed
-                        if ! command -v mvn &> /dev/null; then
-                            echo "Maven not found. Installing Maven..."
-                            apt-get update
-                            apt-get install -y maven
-                        else
-                            echo "Maven is already installed: $(mvn --version | head -n 1)"
+                        # Check common Maven installation locations
+                        MAVEN_PATHS=(
+                            "/opt/maven/bin/mvn"
+                            "/usr/share/maven/bin/mvn"
+                            "/usr/local/maven/bin/mvn"
+                            "$(which mvn 2>/dev/null)"
+                        )
+
+                        MAVEN_FOUND=false
+                        for MVN_PATH in "${MAVEN_PATHS[@]}"; do
+                            if [ -x "$MVN_PATH" ]; then
+                                echo "Found Maven at: $MVN_PATH"
+                                export PATH="$(dirname $MVN_PATH):$PATH"
+                                MAVEN_FOUND=true
+                                break
+                            fi
+                        done
+
+                        if [ "$MAVEN_FOUND" = false ]; then
+                            echo "Maven not found. Setting up Maven Wrapper..."
+                            if [ ! -f "mvnw" ]; then
+                                curl -o mvnw https://raw.githubusercontent.com/takari/maven-wrapper/master/mvnw
+                                chmod +x mvnw
+                                mkdir -p .mvn/wrapper
+                                curl -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
+                                curl -o .mvn/wrapper/maven-wrapper.properties https://raw.githubusercontent.com/takari/maven-wrapper/master/.mvn/wrapper/maven-wrapper.properties
+                            fi
+                            alias mvn='./mvnw'
                         fi
 
-                        # Check if Java is installed
-                        if ! command -v java &> /dev/null; then
-                            echo "Java not found. Installing OpenJDK 21..."
-                            apt-get install -y openjdk-21-jdk
+                        # Verify Maven is working
+                        if command -v mvn &> /dev/null; then
+                            mvn --version
                         else
-                            echo "Java is already installed: $(java -version 2>&1 | head -n 1)"
+                            ./mvnw --version
                         fi
-
-                        # Display versions
-                        echo "=== Environment Setup Complete ==="
-                        mvn --version
-                        java -version
                     '''
                 }
             }
@@ -58,13 +73,13 @@ pipeline {
 
         stage('Maven Build') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh './mvnw clean package -DskipTests'
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh 'mvn test'
+                sh './mvnw test'
             }
             post {
                 always {
@@ -76,7 +91,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn sonar:sonar'
+                    sh './mvnw sonar:sonar'
                 }
             }
         }
