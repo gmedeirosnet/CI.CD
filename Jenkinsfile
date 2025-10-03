@@ -20,20 +20,15 @@ pipeline {
         stage('Setup Maven Wrapper') {
             steps {
                 script {
-                    sh '''
+                    sh '''#!/bin/bash
+                        set -e
                         echo "=== Checking for Maven ==="
 
                         # Check common Maven installation locations
-                        MAVEN_PATHS=(
-                            "/opt/maven/bin/mvn"
-                            "/usr/share/maven/bin/mvn"
-                            "/usr/local/maven/bin/mvn"
-                            "$(which mvn 2>/dev/null)"
-                        )
-
                         MAVEN_FOUND=false
-                        for MVN_PATH in "${MAVEN_PATHS[@]}"; do
-                            if [ -x "$MVN_PATH" ]; then
+
+                        for MVN_PATH in "/opt/maven/bin/mvn" "/usr/share/maven/bin/mvn" "/usr/local/maven/bin/mvn" "$(which mvn 2>/dev/null || true)"; do
+                            if [ -n "$MVN_PATH" ] && [ -x "$MVN_PATH" ]; then
                                 echo "Found Maven at: $MVN_PATH"
                                 export PATH="$(dirname $MVN_PATH):$PATH"
                                 MAVEN_FOUND=true
@@ -41,23 +36,30 @@ pipeline {
                             fi
                         done
 
-                        if [ "$MAVEN_FOUND" = false ]; then
-                            echo "Maven not found. Setting up Maven Wrapper..."
+                        if [ "$MAVEN_FOUND" = "false" ]; then
+                            echo "Maven not found in system. Setting up Maven Wrapper..."
                             if [ ! -f "mvnw" ]; then
-                                curl -o mvnw https://raw.githubusercontent.com/takari/maven-wrapper/master/mvnw
+                                echo "Downloading Maven Wrapper..."
+                                curl -s -o mvnw https://raw.githubusercontent.com/takari/maven-wrapper/master/mvnw
                                 chmod +x mvnw
                                 mkdir -p .mvn/wrapper
-                                curl -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
-                                curl -o .mvn/wrapper/maven-wrapper.properties https://raw.githubusercontent.com/takari/maven-wrapper/master/.mvn/wrapper/maven-wrapper.properties
+                                curl -s -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
+                                curl -s -o .mvn/wrapper/maven-wrapper.properties https://raw.githubusercontent.com/takari/maven-wrapper/master/.mvn/wrapper/maven-wrapper.properties
+                                echo "Maven Wrapper downloaded successfully"
+                            else
+                                echo "Maven Wrapper already exists"
                             fi
-                            alias mvn='./mvnw'
                         fi
 
                         # Verify Maven is working
-                        if command -v mvn &> /dev/null; then
+                        echo "=== Verifying Maven ==="
+                        if command -v mvn >/dev/null 2>&1; then
                             mvn --version
-                        else
+                        elif [ -f "./mvnw" ]; then
                             ./mvnw --version
+                        else
+                            echo "ERROR: Neither system Maven nor Maven Wrapper is available!"
+                            exit 1
                         fi
                     '''
                 }
@@ -73,13 +75,30 @@ pipeline {
 
         stage('Maven Build') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                script {
+                    // Use system mvn if available, otherwise use wrapper
+                    sh '''
+                        if command -v mvn >/dev/null 2>&1; then
+                            mvn clean package -DskipTests
+                        else
+                            ./mvnw clean package -DskipTests
+                        fi
+                    '''
+                }
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh './mvnw test'
+                script {
+                    sh '''
+                        if command -v mvn >/dev/null 2>&1; then
+                            mvn test
+                        else
+                            ./mvnw test
+                        fi
+                    '''
+                }
             }
             post {
                 always {
@@ -91,7 +110,15 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh './mvnw sonar:sonar'
+                    script {
+                        sh '''
+                            if command -v mvn >/dev/null 2>&1; then
+                                mvn sonar:sonar
+                            else
+                                ./mvnw sonar:sonar
+                            fi
+                        '''
+                    }
                 }
             }
         }
