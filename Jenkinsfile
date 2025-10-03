@@ -14,12 +14,17 @@ pipeline {
         // Kubernetes
         KUBECONFIG = credentials('kubeconfig')
         NAMESPACE = 'default'
+
+        // Use system Maven and Java
+        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'  // Adjust path as needed
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
     }
 
-    tools {
-        maven 'Maven 3.9'
-        jdk 'JDK21'
-    }
+    // Remove tools block if not configured in Jenkins
+    // tools {
+    //     maven 'Maven 3.9'
+    //     jdk 'JDK21'
+    // }
 
     stages {
         stage('Checkout') {
