@@ -150,7 +150,9 @@ case $auth_choice in
         echo -e "${RED}Invalid choice${NC}"
         exit 1
         ;;
-esacif [ $? -eq 0 ]; then
+esac
+
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Repository added successfully${NC}"
 else
     echo -e "${RED}Error: Failed to add repository${NC}"
