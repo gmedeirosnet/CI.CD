@@ -1,12 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-21'
-            args '-v $HOME/.m2:/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock --network host'
-            // Network host mode allows access to localhost services (Harbor, SonarQube)
-            // Docker socket mount allows building Docker images inside the container
-        }
-    }
+    agent any
 
     environment {
         // Harbor
@@ -24,6 +17,38 @@ pipeline {
     }
 
     stages {
+        stage('Setup Environment') {
+            steps {
+                script {
+                    sh '''
+                        echo "Checking for required tools..."
+
+                        # Check if Maven is installed
+                        if ! command -v mvn &> /dev/null; then
+                            echo "Maven not found. Installing Maven..."
+                            apt-get update
+                            apt-get install -y maven
+                        else
+                            echo "Maven is already installed: $(mvn --version | head -n 1)"
+                        fi
+
+                        # Check if Java is installed
+                        if ! command -v java &> /dev/null; then
+                            echo "Java not found. Installing OpenJDK 21..."
+                            apt-get install -y openjdk-21-jdk
+                        else
+                            echo "Java is already installed: $(java -version 2>&1 | head -n 1)"
+                        fi
+
+                        # Display versions
+                        echo "=== Environment Setup Complete ==="
+                        mvn --version
+                        java -version
+                    '''
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
