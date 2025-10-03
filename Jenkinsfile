@@ -107,6 +107,9 @@ pipeline {
             }
         }
 
+        // Temporarily disabled - requires SonarQube Scanner plugin to be installed in Jenkins
+        // To enable: Install SonarQube Scanner plugin and configure SonarQube server in Jenkins
+        /*
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -130,6 +133,7 @@ pipeline {
                 }
             }
         }
+        */
 
         stage('Build Docker Image') {
             steps {
