@@ -1,6 +1,7 @@
 # GETTING DATA
 Use the "ai" directory to store: instructions, prompt files, tool sets, modes, and documentation.
 Create the prompt, instructions, and all files in JSON format.
+Examine and store all commits from the repository https://github.com/gmedeirosnet/CI.CD.git
 
 # OBJECTIVES
 The objective is create a LAB to learning DevOps CI/CD deployments tools.
