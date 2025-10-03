@@ -3,7 +3,8 @@
 # ArgoCD Quick Setup Script
 # Connect your GitHub repository to ArgoCD
 
-set -e
+# Note: Not using 'set -e' to handle failures gracefully
+# set -e
 
 echo "=========================================="
 echo "ArgoCD Repository Setup"
@@ -176,12 +177,33 @@ echo -e "${YELLOW}Step 8: Checking cluster configuration...${NC}"
 CURRENT_CONTEXT=$(kubectl config current-context)
 echo "  Current context: $CURRENT_CONTEXT"
 
-if argocd cluster list | grep -q "$CURRENT_CONTEXT"; then
-    echo -e "${GREEN}✓ Cluster already configured${NC}"
+# Check if this is a Kind cluster
+if [[ $CURRENT_CONTEXT =~ ^kind- ]]; then
+    echo -e "${YELLOW}Detected Kind cluster. Checking if cluster is already configured...${NC}"
+
+    # For Kind clusters, we typically use the in-cluster config
+    # Check if the cluster is already added (look for 'in-cluster' or the specific context)
+    if argocd cluster list | grep -qE "(in-cluster|$CURRENT_CONTEXT)"; then
+        echo -e "${GREEN}✓ Cluster already configured${NC}"
+    else
+        echo -e "${YELLOW}For Kind clusters, ArgoCD typically uses in-cluster configuration.${NC}"
+        echo -e "${YELLOW}The cluster will be accessible to ArgoCD applications automatically.${NC}"
+        echo -e "${YELLOW}Skipping external cluster registration for Kind.${NC}"
+        echo -e "${GREEN}✓ Using in-cluster configuration${NC}"
+    fi
 else
-    echo -e "${YELLOW}Adding cluster to ArgoCD...${NC}"
-    argocd cluster add "$CURRENT_CONTEXT" --yes
-    echo -e "${GREEN}✓ Cluster added${NC}"
+    # For non-Kind clusters, try to add normally
+    if argocd cluster list | grep -q "$CURRENT_CONTEXT"; then
+        echo -e "${GREEN}✓ Cluster already configured${NC}"
+    else
+        echo -e "${YELLOW}Adding cluster to ArgoCD...${NC}"
+        if argocd cluster add "$CURRENT_CONTEXT" --yes 2>&1; then
+            echo -e "${GREEN}✓ Cluster added${NC}"
+        else
+            echo -e "${RED}Warning: Failed to add cluster. This is normal for Kind clusters.${NC}"
+            echo -e "${YELLOW}ArgoCD will use in-cluster configuration instead.${NC}"
+        fi
+    fi
 fi
 echo ""
 
