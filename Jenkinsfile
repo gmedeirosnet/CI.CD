@@ -102,11 +102,6 @@ pipeline {
             }
             post {
                 always {
-                    '''
-                }
-            }
-            post {
-                always {
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 }
             }
