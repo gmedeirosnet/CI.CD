@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sample-nginx
-  namespace: default
+  name: nginx-demo
+  namespace: cicd-demo
   labels:
-    app: sample-nginx
+    app: nginx-demo
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: sample-nginx
+      app: nginx-demo
   template:
     metadata:
       labels:
-        app: sample-nginx
+        app: nginx-demo
     spec:
       containers:
       - name: nginx
@@ -44,10 +44,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sample-nginx
+  name: nginx-demo
   namespace: default
   labels:
-    app: sample-nginx
+    app: nginx-demo
 spec:
   type: NodePort
   ports:
@@ -57,4 +57,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: sample-nginx
+    app: nginx-demo
