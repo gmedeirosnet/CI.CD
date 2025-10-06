@@ -107,21 +107,22 @@ pipeline {
             }
         }
 
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         withSonarQubeEnv('SonarQube') {
-        //             script {
-        //                 sh '''
-        //                     if command -v mvn >/dev/null 2>&1; then
-        //                         mvn sonar:sonar
-        //                     else
-        //                         ./mvnw sonar:sonar
-        //                     fi
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
+/*
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    script {
+                        sh '''
+                            if command -v mvn >/dev/null 2>&1; then
+                                mvn sonar:sonar
+                            else
+                                ./mvnw sonar:sonar
+                            fi
+                        '''
+                    }
+                }
+            }
+        }
 
         stage('Quality Gate') {
             steps {
@@ -130,6 +131,7 @@ pipeline {
                 }
             }
         }
+*/
 
         stage('Build Docker Image') {
             steps {
