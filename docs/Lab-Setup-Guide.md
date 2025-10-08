@@ -317,17 +317,9 @@ argocd login localhost:8090
 
 ### 4.2 Configure ArgoCD
 ```bash
-# Add GitHub repository
-argocd repo add https://github.com/yourusername/cicd-demo.git \
-  --username yourusername \
-  --password your-token
-
-# Add Kind cluster (should already be default context)
-kubectl config current-context
-# Should show: kind-cicd-demo-cluster
-
-# If needed, register cluster with ArgoCD
-argocd cluster add kind-cicd-demo-cluster
+# Running the following command to allow ArgoCD to access the local Kind cluster
+1. chmod 0755 scripts/setup-argocd-repo.sh
+2. ./scripts/setup-argocd-repo.sh
 ```
 
 ## Phase 5: Helm Charts Creation
