@@ -3,9 +3,9 @@
 ## Robot Account Details
 Successfully created Harbor robot account for CI/CD pipeline.
 
-**Robot Account Name:** `robot-ci-cd-demo`  
-**Robot Token:** `eyPh0dyp7GLqJENJdINEFwF4XkOBsqiJ`  
-**Harbor Registry:** `127.0.0.1:8082`  
+**Robot Account Name:** `robot-ci-cd-demo`
+**Robot Token:** `eyPh0dyp7GLqJENJdINEFwF4XkOBsqiJ`
+**Harbor Registry:** `127.0.0.1:8082`
 **Harbor Project:** `cicd-demo`
 
 ---
