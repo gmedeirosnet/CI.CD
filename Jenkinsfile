@@ -5,7 +5,7 @@ pipeline {
         // Harbor
         HARBOR_REGISTRY = 'localhost:8082'
         HARBOR_PROJECT = 'cicd-demo'
-        IMAGE_NAME = 'app'
+        IMAGE_NAME = 'cicd-demo'
         IMAGE_TAG = "${BUILD_NUMBER}"
 
         // SonarQube
