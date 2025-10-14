@@ -205,8 +205,8 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'harbor-credentials',
-                    usernameVariable: 'jenkins',
-                    passwordVariable: 'Harbor12345'
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
                 )]) {
                     sh """
                         echo \$PASS | docker login ${HARBOR_REGISTRY} -u \$USER --password-stdin
