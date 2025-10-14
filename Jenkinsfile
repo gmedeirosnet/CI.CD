@@ -204,7 +204,7 @@ pipeline {
                             // Use credentials for the forced checkout (replace placeholder with your Jenkins credentialsId)
                             def repoUrl = scm.userRemoteConfigs[0].url
                             checkout([$class: 'GitSCM', branches: scm.branches,
-                                      userRemoteConfigs: [[url: repoUrl, credentialsId: 'YOUR_GIT_CREDENTIALS_ID']],
+                                      userRemoteConfigs: [[url: repoUrl, credentialsId: 'gmedeiros@gmail.com']],
                                       doGenerateSubmoduleConfigurations: false,
                                       extensions: [
                                           [$class: 'WipeWorkspace'],
@@ -253,7 +253,7 @@ else
     echo "Plain clone did not produce src/ — will try credentialed sshagent clone as last resort"
     rm -rf "${TMPDIR}"
     // Last resort: try with sshagent using Jenkins credentialsId placeholder
-    sshagent(['YOUR_GIT_CREDENTIALS_ID']) {
+    sshagent(['gmedeiros@gmail.com']) {
         TMPDIR=$(mktemp -d)
         git clone --depth=1 "$SCM_URL" "${TMPDIR}" || true
         echo "Contents of tmp clone (credentialed) (top-level):"; ls -la "${TMPDIR}" || true
