@@ -193,21 +193,23 @@ pipeline {
                         if (!fileExists('src')) {
                             echo 'src still missing after GitSCM checkout. Attempting fallback git clone into tmp folder...'
                             def repoUrl = scm.userRemoteConfigs[0].url
-                            sh """#!/bin/bash
-                                set -e
-                                TMPDIR=$(mktemp -d)
-                                echo "Cloning ${repoUrl} into ${TMPDIR} (may require credentials/SSH agent)..."
-                                git clone --depth=1 '${repoUrl}' "${TMPDIR}" || true
-                                echo "Contents of tmp clone (top-level):"; ls -la "${TMPDIR}" || true
-                                # If clone produced a src/ directory, copy into workspace
-                                if [ -d "${TMPDIR}/src" ]; then
-                                    cp -a "${TMPDIR}/." . || true
-                                    echo "Copied files from temporary clone into workspace"
-                                else
-                                    echo "Fallback clone did not produce src/ — clone may have failed or repo requires auth"
-                                fi
-                                rm -rf "${TMPDIR}"
-                            """
+                            // Use a single-quoted Groovy string to avoid GString interpolation of shell $/ ${} sequences
+                            sh ('''#!/bin/bash
+set -e
+TMPDIR=$(mktemp -d)
+SCM_URL=''' + "'" + repoUrl + "'" + '''
+echo "Cloning ${SCM_URL} into ${TMPDIR} (may require credentials/SSH agent)..."
+git clone --depth=1 "$SCM_URL" "${TMPDIR}" || true
+echo "Contents of tmp clone (top-level):"; ls -la "${TMPDIR}" || true
+# If clone produced a src/ directory, copy into workspace
+if [ -d "${TMPDIR}/src" ]; then
+    cp -a "${TMPDIR}/." . || true
+    echo "Copied files from temporary clone into workspace"
+else
+    echo "Fallback clone did not produce src/ — clone may have failed or repo requires auth"
+fi
+rm -rf "${TMPDIR}"
+''')
                         }
 
                         // Final check
