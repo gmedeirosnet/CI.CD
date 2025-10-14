@@ -68,7 +68,16 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                    // Ensure a full, clean checkout so the build context contains all files (including src/)
+                    checkout([$class: 'GitSCM', branches: scm.branches, userRemoteConfigs: scm.userRemoteConfigs,
+                              doGenerateSubmoduleConfigurations: false,
+                              extensions: [
+                                  [$class: 'CleanBeforeCheckout'],
+                                  [$class: 'CloneOption', noTags: false, shallow: false, depth: 0]
+                              ]
+                    ])
+                }
                 echo "Building version ${IMAGE_TAG}"
             }
         }
@@ -132,6 +141,89 @@ pipeline {
             }
         }
 */
+
+        stage('Ensure Source Present') {
+            steps {
+                script {
+                    echo 'Checking that repository source (src/) is present in the workspace...'
+                    // Print diagnostics that help identify sparse/lightweight checkout issues
+                    sh '''#!/bin/bash
+                        echo "PWD: $(pwd)"
+                        echo "Workspace listing (top-level):"
+                        ls -la || true
+                        echo ".git exists?:"; [ -d .git ] && echo yes || echo no
+                        echo "Git files (if repo present):"
+                        if [ -d .git ]; then
+                            git rev-parse --show-toplevel || true
+                            git ls-files | sed -n '1,200p' || true
+                            echo "Shallow repo?:"; git rev-parse --is-shallow-repository || true
+                            if [ -f .git/info/sparse-checkout ]; then
+                                echo "Sparse-checkout rules:"; cat .git/info/sparse-checkout || true
+                            fi
+                        fi
+                    '''
+
+                    // If src doesn't exist, attempt a robust full checkout using GitSCM (wipe workspace + no shallow)
+                    if (!fileExists('src')) {
+                        echo 'src/ not found — attempting a full wipe + Git checkout using GitSCM...'
+                        // Try a forced checkout via the scm binding with WipeWorkspace and non-shallow clone
+                        try {
+                            checkout([$class: 'GitSCM', branches: scm.branches, userRemoteConfigs: scm.userRemoteConfigs,
+                                      doGenerateSubmoduleConfigurations: false,
+                                      extensions: [
+                                          [$class: 'WipeWorkspace'],
+                                          [$class: 'CleanBeforeCheckout'],
+                                          [$class: 'CloneOption', noTags: false, shallow: false, depth: 0]
+                                      ]
+                            ])
+                        } catch (err) {
+                            echo "GitSCM checkout attempt failed: ${err}"
+                        }
+
+                        // Re-run diagnostics
+                        sh '''#!/bin/bash
+                            echo "Post-checkout listing:"; ls -la || true
+                            echo "Listing src/:"; ls -la src || echo "src still missing"
+                            if [ -d .git ]; then
+                                echo "Post-checkout git ls-files (first 200):"; git ls-files | sed -n '1,200p' || true
+                            fi
+                        '''
+
+                        // If still missing, as a last resort try a plain git clone into a temporary directory and move files
+                        if (!fileExists('src')) {
+                            echo 'src still missing after GitSCM checkout. Attempting fallback git clone into tmp folder...'
+                            def repoUrl = scm.userRemoteConfigs[0].url
+                            sh """#!/bin/bash
+                                set -e
+                                TMPDIR=$(mktemp -d)
+                                echo "Cloning ${repoUrl} into ${TMPDIR} (may require credentials/SSH agent)..."
+                                git clone --depth=1 '${repoUrl}' "${TMPDIR}" || true
+                                echo "Contents of tmp clone (top-level):"; ls -la "${TMPDIR}" || true
+                                # If clone produced a src/ directory, copy into workspace
+                                if [ -d "${TMPDIR}/src" ]; then
+                                    cp -a "${TMPDIR}/." . || true
+                                    echo "Copied files from temporary clone into workspace"
+                                else
+                                    echo "Fallback clone did not produce src/ — clone may have failed or repo requires auth"
+                                fi
+                                rm -rf "${TMPDIR}"
+                            """
+                        }
+
+                        // Final check
+                        if (fileExists('src')) {
+                            echo 'Source present after fallback — continuing.'
+                        } else {
+                            echo "ALERT: src/ still not present. Please disable 'Lightweight checkout' or adjust branch source settings in Jenkins job configuration and re-run the pipeline."
+                            // Fail the build so user can take action, but include helpful hint
+                            error("Missing source directory 'src' in workspace — cannot build Docker image")
+                        }
+                    } else {
+                        echo 'src/ already present — proceeding.'
+                    }
+                }
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
