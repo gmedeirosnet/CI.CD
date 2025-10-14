@@ -136,6 +136,20 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
+                    // Debug: show workspace and confirm src exists in build context
+                    sh '''
+                        echo "WORKSPACE=${WORKSPACE:-(not set)}"
+                        pwd
+                        echo "Listing current directory:"
+                        ls -la || true
+                        echo "Listing src/:"
+                        ls -la src || echo "src not found"
+                        echo "Git top-level and status (if available):"
+                        git rev-parse --show-toplevel || true
+                        git status --porcelain || true
+                    '''
+
+                    // Build the image (run after debugging output)
                     sh """
                         docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
                         docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
