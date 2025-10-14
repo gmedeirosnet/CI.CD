@@ -128,19 +128,51 @@ EOF
 
 ### 2.1 Install Jenkins
 ```bash
-# Using Docker
+# Create Docker network for CI/CD tools
 docker network create cicd-network
 
+# Run Jenkins with Docker access (IMPORTANT for building images)
 docker run -d \
   --name jenkins \
+  --restart unless-stopped \
   --network cicd-network \
   -p 8080:8080 \
   -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  jenkins/jenkins:latest
+  jenkins/jenkins:lts
 
-# Get initial password
+# Wait for Jenkins to start (30-60 seconds)
+echo "Waiting for Jenkins to start..."
+sleep 30
+
+# Install Docker CLI in Jenkins container
+echo "Installing Docker CLI in Jenkins..."
+
+# Detect architecture and Debian version
+ARCH=$(docker exec jenkins dpkg --print-architecture)
+DEBIAN_VERSION=$(docker exec jenkins cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
+
+# Install Docker CLI
+docker exec -u root jenkins bash -c "
+  apt-get update
+  apt-get install -y apt-transport-https ca-certificates curl gnupg
+  curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  echo \"deb [arch=$ARCH signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $DEBIAN_VERSION stable\" > /etc/apt/sources.list.d/docker.list
+  apt-get update
+  apt-get install -y docker-ce-cli docker-buildx-plugin docker-compose-plugin
+  apt-get clean
+"
+
+# Fix Docker socket permissions
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
+
+# Verify Docker is working
+docker exec jenkins docker --version
+docker exec jenkins docker ps
+
+# Get initial admin password
+echo "Jenkins Initial Admin Password:"
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 
 # Access Jenkins at http://localhost:8080
@@ -150,6 +182,19 @@ docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 # - SonarQube Scanner
 # - Kubernetes CLI
 # - Ansible
+```
+
+**Important Notes:**
+- Docker socket mounting gives Jenkins access to build Docker images
+- The script automatically detects ARM64 (Apple Silicon) or AMD64 architecture
+- Docker CLI must be installed inside the Jenkins container
+- Permissions on Docker socket may need adjustment (chmod 666)
+
+**Alternative: Use Automated Setup Script**
+```bash
+# Use the provided setup script for easier installation
+chmod +x scripts/setup-jenkins-docker.sh
+./scripts/setup-jenkins-docker.sh
 ```
 
 ### 2.2 Install SonarQube
@@ -668,13 +713,96 @@ docker volume prune -f
 ## Troubleshooting
 
 ### Common Issues
-1. Jenkins can't connect to Docker: Ensure Docker socket is mounted
-2. Harbor SSL errors: Use http for local testing
-3. ArgoCD sync fails: Check GitHub credentials and repository access
-4. Kind cluster fails to start: Restart Docker Desktop and try again
-5. SonarQube out of memory: Increase Docker Desktop memory limits to 8GB+
-6. Pods not starting in Kind: Check `kubectl describe pod <name>` and verify images are loaded
-7. Port conflicts: Check if ports 30000-30002, 8080, 8090 are already in use
+
+#### 1. Jenkins can't connect to Docker
+**Error:** `docker: not found` or `Cannot connect to the Docker daemon`
+
+**Solution:**
+```bash
+# Install Docker CLI in Jenkins container
+docker exec -u root jenkins bash -c "
+  apt-get update && \
+  apt-get install -y docker.io
+"
+
+# Fix Docker socket permissions
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
+
+# Verify
+docker exec jenkins docker --version
+docker exec jenkins docker ps
+```
+
+**For ARM64 (Apple Silicon M1/M2/M3/M4):**
+```bash
+# Use correct architecture in Docker repository
+ARCH=$(docker exec jenkins dpkg --print-architecture)
+DEBIAN_VERSION=$(docker exec jenkins cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
+
+docker exec -u root jenkins bash -c "
+  apt-get update
+  apt-get install -y apt-transport-https ca-certificates curl gnupg
+  curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  echo 'deb [arch=$ARCH signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $DEBIAN_VERSION stable' > /etc/apt/sources.list.d/docker.list
+  apt-get update
+  apt-get install -y docker-ce-cli
+"
+```
+
+#### 2. Harbor SSL errors
+**Solution:** Use http for local testing
+
+#### 3. ArgoCD sync fails
+**Solution:** Check GitHub credentials and repository access
+
+#### 4. Kind cluster fails to start
+**Solution:** Restart Docker Desktop and try again
+
+#### 5. SonarQube out of memory
+**Solution:** Increase Docker Desktop memory limits to 8GB+
+
+#### 6. Pods not starting in Kind
+**Solution:** Check `kubectl describe pod <name>` and verify images are loaded
+
+#### 7. Port conflicts
+**Solution:** Check if ports 30000-30002, 8080, 8090 are already in use
+
+#### 8. Initial admin password not found
+**Error:** `cat: /var/jenkins_home/secrets/initialAdminPassword: No such file or directory`
+
+**This is NORMAL if:**
+- Jenkins was already set up previously
+- The password file is deleted after first-time setup (security feature)
+- You should use your existing admin credentials
+
+**If this is a new installation:**
+```bash
+# Wait for Jenkins to fully initialize
+sleep 30
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+# If still not found, check Jenkins logs
+docker logs jenkins --tail 50
+```
+
+#### 9. Docker socket permissions reset after reboot
+**Solution:**
+```bash
+# Re-apply permissions
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
+
+# Or restart Jenkins container
+docker restart jenkins
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
+```
+
+### Detailed Documentation
+
+For comprehensive troubleshooting and setup guides, see:
+- **Jenkins Docker Integration:** `docs/Jenkins-Docker-Integration.md`
+- **Quick Fix Guide:** `docs/Jenkins-Docker-QuickFix.md`
+- **Resolution Report:** `docs/Jenkins-Docker-Resolution-Report.md`
+- **Harbor Integration:** `docs/Harbor-Jenkins-Integration.md`
 
 ### Kind-Specific Issues
 ```bash
