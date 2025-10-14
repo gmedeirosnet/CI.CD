@@ -85,12 +85,45 @@ pipeline {
         stage('Maven Build') {
             steps {
                 script {
-                    // Use system mvn if available, otherwise use wrapper
-                    sh '''
+                    // Use system mvn if available, otherwise use wrapper. Add diagnostics and ensure wrapper is executable.
+                    sh '''#!/bin/bash
+                        set -e
+                        echo "Maven build: PWD=$(pwd)"
+                        echo "Workspace top-level:"; ls -la || true
+                        echo "Checking for mvn and mvnw..."
                         if command -v mvn >/dev/null 2>&1; then
+                            echo "Found system mvn: $(mvn --version | head -n1)"
                             mvn clean package -DskipTests
                         else
-                            ./mvnw clean package -DskipTests
+                            if [ -f ./mvnw ]; then
+                                echo "Found mvnw in workspace. Ensuring executable bit and running wrapper..."
+                                chmod +x ./mvnw || true
+                                ls -la ./mvnw || true
+                                if [ -x ./mvnw ]; then
+                                    ./mvnw clean package -DskipTests
+                                else
+                                    echo "mvnw exists but is not executable; attempting to run with sh"
+                                    sh ./mvnw clean package -DskipTests
+                                fi
+                            else
+                                echo "mvnw not found in workspace — attempting to download Maven Wrapper files as a fallback"
+                                # Attempt to download the takari maven wrapper files (best-effort)
+                                set -e
+                                echo "Downloading mvnw and wrapper jars..."
+                                curl -s -o mvnw https://raw.githubusercontent.com/takari/maven-wrapper/master/mvnw || true
+                                chmod +x mvnw || true
+                                mkdir -p .mvn/wrapper || true
+                                curl -s -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar || true
+                                curl -s -o .mvn/wrapper/maven-wrapper.properties https://raw.githubusercontent.com/takari/maven-wrapper/master/.mvn/wrapper/maven-wrapper.properties || true
+                                if [ -f ./mvnw ]; then
+                                    echo "Downloaded mvnw, running wrapper..."
+                                    chmod +x ./mvnw || true
+                                    ./mvnw clean package -DskipTests
+                                else
+                                    echo "ERROR: Failed to obtain mvnw. Please ensure repository is fully checked out or disable lightweight checkout in job settings."
+                                    exit 1
+                                fi
+                            fi
                         fi
                     '''
                 }
@@ -168,7 +201,10 @@ pipeline {
                         echo 'src/ not found — attempting a full wipe + Git checkout using GitSCM...'
                         // Try a forced checkout via the scm binding with WipeWorkspace and non-shallow clone
                         try {
-                            checkout([$class: 'GitSCM', branches: scm.branches, userRemoteConfigs: scm.userRemoteConfigs,
+                            // Use credentials for the forced checkout (replace placeholder with your Jenkins credentialsId)
+                            def repoUrl = scm.userRemoteConfigs[0].url
+                            checkout([$class: 'GitSCM', branches: scm.branches,
+                                      userRemoteConfigs: [[url: repoUrl, credentialsId: 'YOUR_GIT_CREDENTIALS_ID']],
                                       doGenerateSubmoduleConfigurations: false,
                                       extensions: [
                                           [$class: 'WipeWorkspace'],
@@ -194,19 +230,41 @@ pipeline {
                             echo 'src still missing after GitSCM checkout. Attempting fallback git clone into tmp folder...'
                             def repoUrl = scm.userRemoteConfigs[0].url
                             // Use a single-quoted Groovy string to avoid GString interpolation of shell $/ ${} sequences
+                            // First try GitHub CLI or plain git clone (works if SSH keys or gh auth are already available in the agent)
                             sh ('''#!/bin/bash
 set -e
 TMPDIR=$(mktemp -d)
 SCM_URL=''' + "'" + repoUrl + "'" + '''
-echo "Cloning ${SCM_URL} into ${TMPDIR} (may require credentials/SSH agent)..."
-git clone --depth=1 "$SCM_URL" "${TMPDIR}" || true
+echo "Attempting fallback clone into ${TMPDIR} using 'gh' then 'git'..."
+if command -v gh >/dev/null 2>&1; then
+    echo "gh found — attempting 'gh repo clone'"
+    gh repo clone "$SCM_URL" "${TMPDIR}" || true
+fi
+if [ ! -d "${TMPDIR}/.git" ]; then
+    echo "'gh' clone didn't work or not available — trying plain git clone"
+    git clone --depth=1 "$SCM_URL" "${TMPDIR}" || true
+fi
 echo "Contents of tmp clone (top-level):"; ls -la "${TMPDIR}" || true
 # If clone produced a src/ directory, copy into workspace
 if [ -d "${TMPDIR}/src" ]; then
     cp -a "${TMPDIR}/." . || true
     echo "Copied files from temporary clone into workspace"
 else
-    echo "Fallback clone did not produce src/ — clone may have failed or repo requires auth"
+    echo "Plain clone did not produce src/ — will try credentialed sshagent clone as last resort"
+    rm -rf "${TMPDIR}"
+    // Last resort: try with sshagent using Jenkins credentialsId placeholder
+    sshagent(['YOUR_GIT_CREDENTIALS_ID']) {
+        TMPDIR=$(mktemp -d)
+        git clone --depth=1 "$SCM_URL" "${TMPDIR}" || true
+        echo "Contents of tmp clone (credentialed) (top-level):"; ls -la "${TMPDIR}" || true
+        if [ -d "${TMPDIR}/src" ]; then
+            cp -a "${TMPDIR}/." . || true
+            echo "Copied files from credentialed temporary clone into workspace"
+        else
+            echo "Credentialed clone also did not produce src/ — clone may have failed"
+        fi
+        rm -rf "${TMPDIR}"
+    }
 fi
 rm -rf "${TMPDIR}"
 ''')
