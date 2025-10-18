@@ -4,7 +4,7 @@
 This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using all the focus tools: ArgoCD, Kind (K8s in Docker), Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
 
 ## Prerequisites
-- macOS (M4 recommended), Linux, or Windows with WSL2
+- macOS (M1 recommended), Linux, or Windows with WSL2
 - At least 16GB RAM and 50GB free disk space
 - Docker Desktop installed (required for Kind)
 - GitHub account
