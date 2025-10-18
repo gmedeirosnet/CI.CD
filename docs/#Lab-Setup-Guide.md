@@ -253,27 +253,21 @@ docker-compose -f sonar-compose.yml up -d
 ```
 
 ### 2.3 Install Harbor
+Go to the Harbor directory and run the installation script:
 ```bash
-# Download Harbor
-wget https://github.com/goharbor/harbor/releases/download/v2.9.0/harbor-offline-installer-v2.9.0.tgz
-tar xzvf harbor-offline-installer-v2.9.0.tgz
 cd harbor
-
-# Configure Harbor
-cp harbor.yml.tmpl harbor.yml
-vi harbor.yml
-# Set:
-# hostname: localhost
-# http.port: 8082
-# harbor_admin_password: Harbor12345
-
-# Install Harbor
 sudo ./install.sh --with-trivy
-
-# Access Harbor at http://localhost:8082
-# Login: admin / Harbor12345
-# Create project: cicd-demo
 ```
+
+- On the Harbor install directory, change the docker-compose.yml to map the database volume to a local directory for persistence:
+```yaml
+    volumes:
+      - /Users/gutembergmedeiros/Labs/CI.CD/harbor/data/database:/var/lib/postgresql/data:z #Customize here with your local directory
+```
+
+- Access Harbor at http://localhost:8082
+- Login: admin / Harbor12345
+- Create project: cicd-demo
 
 ## Phase 3: Kind (Kubernetes in Docker) Setup
 
