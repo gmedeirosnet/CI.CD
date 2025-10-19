@@ -16,7 +16,7 @@ item=0
 # clair is deprecated
 with_clair=$false
 # trivy is not enabled by default
-with_trivy=$false
+with_trivy=$true
 
 # flag to using docker compose v1 or v2, default would using v1 docker-compose
 DOCKER_COMPOSE=docker-compose
@@ -69,7 +69,7 @@ echo ""
 
 if [ -n "$DOCKER_COMPOSE ps -q"  ]
     then
-        note "stopping existing Harbor instance ..." 
+        note "stopping existing Harbor instance ..."
         $DOCKER_COMPOSE down -v
 fi
 echo ""

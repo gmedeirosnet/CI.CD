@@ -4,7 +4,7 @@
 Successfully created Harbor robot account for CI/CD pipeline.
 
 **Robot Account Name:** `robot-ci-cd-demo`
-**Robot Token:** `eyPh0dyp7GLqJENJdINEFwF4XkOBsqiJ`
+**Robot Token:** `YourRobotToken`
 **Harbor Registry:** `127.0.0.1:8082`
 **Harbor Project:** `cicd-demo`
 
@@ -23,7 +23,7 @@ Successfully created Harbor robot account for CI/CD pipeline.
    | **Kind** | Username with password |
    | **Scope** | Global |
    | **Username** | `robot$robot-ci-cd-demo` |
-   | **Password** | `eyPh0dyp7GLqJENJdINEFwF4XkOBsqiJ` |
+   | **Password** | `YourRobotToken` |
    | **ID** | `harbor-credentials` |
    | **Description** | Harbor robot account for CI/CD pipeline |
 
@@ -59,7 +59,7 @@ Run these commands on the machine that will execute Docker builds:
 
 ```bash
 # Test login
-echo "eyPh0dyp7GLqJENJdINEFwF4XkOBsqiJ" | docker login 127.0.0.1:8082 -u "robot\$robot-ci-cd-demo" --password-stdin
+echo "YourRobotToken" | docker login 127.0.0.1:8082 -u "robot\$robot-ci-cd-demo" --password-stdin
 
 # Expected output: "Login Succeeded"
 ```

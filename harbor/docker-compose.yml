@@ -92,7 +92,7 @@ services:
       - SETGID
       - SETUID
     volumes:
-      - /Users/gutembergmedeiros/Labs/CI.CD/harbor/data/database:/var/lib/postgresql/data:z #Customize here with your local directory
+      - /Users/gutembergmedeiros/Labs/CI.CD/harbor/data/database:/var/lib/postgresql/data:z
     networks:
       harbor:
     env_file:
