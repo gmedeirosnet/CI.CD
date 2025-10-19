@@ -205,32 +205,64 @@ pipeline {
 
         stage('Update Helm Chart') {
             steps {
-                sh """
-                    cd helm-charts/cicd-demo
-                    sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
-                    git add values.yaml
-                    git commit -m "Update image tag to ${IMAGE_TAG}" || true
-                    git push origin main || true
-                """
+                script {
+                    // Update the Helm chart values with the new image tag
+                    sh """
+                        cd helm-charts/cicd-demo
+                        # Fix sed for Linux (remove macOS-specific empty string after -i)
+                        sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
+                        cat values.yaml | grep tag:
+                    """
+
+                    // Commit and push changes using Git credentials
+                    withCredentials([usernamePassword(
+                        credentialsId: 'github-credentials',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_TOKEN'
+                    )]) {
+                        sh """
+                            # Configure git
+                            git config user.email "jenkins@cicd.local"
+                            git config user.name "Jenkins CI"
+
+                            # Add and commit the changes
+                            cd helm-charts/cicd-demo
+                            git add values.yaml
+
+                            # Commit (only if there are changes)
+                            git diff --cached --quiet || git commit -m "ci: Update image tag to ${IMAGE_TAG} [skip ci]"
+
+                            # Push using credentials
+                            git push https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/gmedeirosnet/CI.CD.git HEAD:main || echo "No changes to push or push failed"
+                        """
+                    }
+                }
             }
         }
 
         stage('Deploy with ArgoCD') {
             steps {
-                sh """
-                    argocd app create cicd-demo \
-                        --repo https://github.com/yourusername/cicd-demo.git \
-                        --path helm-charts/cicd-demo \
-                        --dest-server https://kubernetes.default.svc \
-                        --dest-namespace ${NAMESPACE} \
-                        --sync-policy automated \
-                        --auto-prune \
-                        --self-heal \
-                        || true
+                script {
+                    sh """
+                        # Create ArgoCD application if it doesn't exist
+                        argocd app create cicd-demo \
+                            --repo https://github.com/gmedeirosnet/CI.CD.git \
+                            --path helm-charts/cicd-demo \
+                            --dest-server https://kubernetes.default.svc \
+                            --dest-namespace ${NAMESPACE} \
+                            --sync-policy automated \
+                            --auto-prune \
+                            --self-heal \
+                            2>/dev/null || echo "ArgoCD app already exists"
 
-                    argocd app sync cicd-demo
-                    argocd app wait cicd-demo --timeout 300
-                """
+                        # Sync and wait for deployment
+                        argocd app sync cicd-demo --timeout 300
+                        argocd app wait cicd-demo --timeout 300
+
+                        # Show application status
+                        argocd app get cicd-demo
+                    """
+                }
             }
         }
 
