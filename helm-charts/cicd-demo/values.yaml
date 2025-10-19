@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: http://127.0.0.1:8082/harbor/projects/2/repositories
+  repository: localhost:8082/cicd-demo/app
   pullPolicy: Always
   tag: "latest"
 
