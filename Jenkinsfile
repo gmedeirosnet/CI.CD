@@ -207,7 +207,7 @@ pipeline {
             steps {
                 sh """
                     cd helm-charts/cicd-demo
-                    sed -i '' 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
+                    sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
                     git add values.yaml
                     git commit -m "Update image tag to ${IMAGE_TAG}" || true
                     git push origin main || true
