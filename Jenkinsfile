@@ -221,42 +221,23 @@ pipeline {
             steps {
                 script {
                     sh """
-                        # Create or update ArgoCD Application using kubectl
-                        cat <<EOF | kubectl apply -f -
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: cicd-demo
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/gmedeirosnet/CI.CD.git
-    targetRevision: HEAD
-    path: helm-charts/cicd-demo
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: ${NAMESPACE}
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-EOF
+                        # Create ArgoCD application if it doesn't exist
+                        argocd app create cicd-demo \
+                            --repo https://github.com/gmedeirosnet/CI.CD.git \
+                            --path helm-charts/cicd-demo \
+                            --dest-server https://kubernetes.default.svc \
+                            --dest-namespace ${NAMESPACE} \
+                            --sync-policy automated \
+                            --auto-prune \
+                            --self-heal \
+                            2>/dev/null || echo "ArgoCD app already exists"
 
-                        # Wait for application to sync (with timeout)
-                        echo "Waiting for ArgoCD to sync the application..."
-                        kubectl wait --for=condition=Synced application/cicd-demo -n argocd --timeout=300s || echo "Sync timeout - check ArgoCD UI"
+                        # Sync and wait for deployment
+                        argocd app sync cicd-demo --timeout 300
+                        argocd app wait cicd-demo --timeout 300
 
                         # Show application status
-                        echo "Application status:"
-                        kubectl get application cicd-demo -n argocd -o jsonpath='{.status.sync.status}' && echo
-                        kubectl get application cicd-demo -n argocd -o jsonpath='{.status.health.status}' && echo
-
-                        # List deployed resources
-                        echo "Deployed resources:"
-                        kubectl get all -n ${NAMESPACE} -l app.kubernetes.io/instance=cicd-demo
+                        argocd app get cicd-demo
                     """
                 }
             }
