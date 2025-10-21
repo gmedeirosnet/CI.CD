@@ -213,29 +213,6 @@ pipeline {
                         sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
                         cat values.yaml | grep tag:
                     """
-
-                    // Commit and push changes using Git credentials
-                    withCredentials([usernamePassword(
-                        credentialsId: 'github-credentials',
-                        usernameVariable: 'GIT_USERNAME',
-                        passwordVariable: 'GIT_TOKEN'
-                    )]) {
-                        sh """
-                            # Configure git
-                            git config user.email "jenkins@cicd.local"
-                            git config user.name "Jenkins CI"
-
-                            # Add and commit the changes
-                            cd helm-charts/cicd-demo
-                            git add values.yaml
-
-                            # Commit (only if there are changes)
-                            git diff --cached --quiet || git commit -m "ci: Update image tag to ${IMAGE_TAG} [skip ci]"
-
-                            # Push using credentials
-                            git push https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/gmedeirosnet/CI.CD.git HEAD:main || echo "No changes to push or push failed"
-                        """
-                    }
                 }
             }
         }
