@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: localhost:8082/cicd-demo/app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: "latest"
 
 serviceAccount:
