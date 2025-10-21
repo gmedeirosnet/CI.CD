@@ -222,8 +222,8 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'argocd', variable: 'ARGOCD_AUTH_TOKEN')]) {
                         sh """
-                            # Set ArgoCD server (adjust if different)
-                            export ARGOCD_SERVER='localhost:8090'
+                            # Set ArgoCD server - use host.docker.internal to reach host from container
+                            export ARGOCD_SERVER='host.docker.internal:8090'
 
                             # Token auth is automatic via ARGOCD_AUTH_TOKEN env var
                             # Create ArgoCD application if it doesn't exist

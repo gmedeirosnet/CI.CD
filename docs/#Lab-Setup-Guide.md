@@ -171,6 +171,16 @@ docker exec -u root jenkins chmod 666 /var/run/docker.sock
 docker exec jenkins docker --version
 docker exec jenkins docker ps
 
+# Install ArgoCD CLI in Jenkins container
+echo "Installing ArgoCD CLI..."
+docker exec -u root jenkins bash -c "
+  curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+  chmod +x /usr/local/bin/argocd
+"
+
+# Verify ArgoCD CLI
+docker exec jenkins argocd version --client
+
 # Get initial admin password
 echo "Jenkins Initial Admin Password:"
 docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword

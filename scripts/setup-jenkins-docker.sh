@@ -237,7 +237,25 @@ else
 fi
 echo ""
 
-# Step 12: Display summary
+# Step 12: Install ArgoCD CLI
+echo -e "${YELLOW}Step 12: Installing ArgoCD CLI in Jenkins container...${NC}"
+docker exec -u root jenkins bash -c "
+  curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+  chmod +x /usr/local/bin/argocd
+" 2>/dev/null || true
+
+if docker exec jenkins argocd version --client >/dev/null 2>&1; then
+    ARGOCD_VERSION=$(docker exec jenkins argocd version --client 2>/dev/null | grep "argocd:" | awk '{print $2}')
+    echo -e "${GREEN}✓ ArgoCD CLI installed successfully${NC}"
+    echo "  Version: $ARGOCD_VERSION"
+else
+    echo -e "${RED}✗ Failed to install ArgoCD CLI${NC}"
+    echo "You can install it manually later with:"
+    echo "  docker exec -u root jenkins bash -c 'curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && chmod +x /usr/local/bin/argocd'"
+fi
+echo ""
+
+# Step 13: Display summary
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
@@ -270,6 +288,7 @@ echo "  Restart:        docker restart jenkins"
 echo "  Stop:           docker stop jenkins"
 echo "  Enter shell:    docker exec -it jenkins bash"
 echo "  Test Docker:    docker exec jenkins docker --version"
+echo "  Test ArgoCD:    docker exec jenkins argocd version --client"
 echo ""
 
 echo -e "${BLUE}Next Steps:${NC}"
