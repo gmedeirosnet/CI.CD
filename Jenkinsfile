@@ -220,7 +220,7 @@ pipeline {
         stage('Deploy with ArgoCD') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'argocd-auth-token', variable: 'ARGOCD_AUTH_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'argocd', variable: 'ARGOCD_AUTH_TOKEN')]) {
                         sh """
                             # Set ArgoCD server (adjust if different)
                             export ARGOCD_SERVER='localhost:8080'
