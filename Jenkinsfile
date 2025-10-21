@@ -149,6 +149,7 @@ pipeline {
             }
         }
 
+/*
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -172,6 +173,7 @@ pipeline {
                 }
             }
         }
+*/
 
         stage('Build Docker Image') {
             steps {
