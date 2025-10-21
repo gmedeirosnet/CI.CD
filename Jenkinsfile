@@ -220,7 +220,7 @@ pipeline {
         stage('Deploy with ArgoCD') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'argocd', variable: 'ARGOCD_AUTH_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'argocd-auth-token', variable: 'ARGOCD_AUTH_TOKEN')]) {
                         sh """
                             # Set ArgoCD server - use host.docker.internal to reach host from container
                             export ARGOCD_SERVER='host.docker.internal:8090'
