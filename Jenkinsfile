@@ -223,7 +223,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'argocd', variable: 'ARGOCD_AUTH_TOKEN')]) {
                         sh """
                             # Set ArgoCD server (adjust if different)
-                            export ARGOCD_SERVER='localhost:8080'
+                            export ARGOCD_SERVER='localhost:8090'
 
                             # Token auth is automatic via ARGOCD_AUTH_TOKEN env var
                             # Create ArgoCD application if it doesn't exist
