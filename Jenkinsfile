@@ -206,10 +206,8 @@ pipeline {
         stage('Update Helm Chart') {
             steps {
                 script {
-                    // Update the Helm chart values with the new image tag
                     sh """
                         cd helm-charts/cicd-demo
-                        # Fix sed for Linux (remove macOS-specific empty string after -i)
                         sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
                         cat values.yaml | grep tag:
                     """
