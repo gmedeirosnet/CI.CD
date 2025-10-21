@@ -220,25 +220,33 @@ pipeline {
         stage('Deploy with ArgoCD') {
             steps {
                 script {
-                    sh """
-                        # Create ArgoCD application if it doesn't exist
-                        argocd app create cicd-demo \
-                            --repo https://github.com/gmedeirosnet/CI.CD.git \
-                            --path helm-charts/cicd-demo \
-                            --dest-server https://kubernetes.default.svc \
-                            --dest-namespace ${NAMESPACE} \
-                            --sync-policy automated \
-                            --auto-prune \
-                            --self-heal \
-                            2>/dev/null || echo "ArgoCD app already exists"
+                    withCredentials([string(credentialsId: 'argocd-auth-token', variable: 'ARGOCD_AUTH_TOKEN')]) {
+                        sh """
+                            # Set ArgoCD server (adjust if different)
+                            export ARGOCD_SERVER='localhost:8080'
 
-                        # Sync and wait for deployment
-                        argocd app sync cicd-demo --timeout 300
-                        argocd app wait cicd-demo --timeout 300
+                            # Token auth is automatic via ARGOCD_AUTH_TOKEN env var
+                            # Create ArgoCD application if it doesn't exist
+                            argocd app create cicd-demo \
+                                --repo https://github.com/gmedeirosnet/CI.CD.git \
+                                --path helm-charts/cicd-demo \
+                                --dest-server https://kubernetes.default.svc \
+                                --dest-namespace ${NAMESPACE} \
+                                --sync-policy automated \
+                                --auto-prune \
+                                --self-heal \
+                                --grpc-web \
+                                --insecure \
+                                2>/dev/null || echo "ArgoCD app already exists"
 
-                        # Show application status
-                        argocd app get cicd-demo
-                    """
+                            # Sync and wait for deployment
+                            argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
+                            argocd app wait cicd-demo --timeout 300 --grpc-web --insecure
+
+                            # Show application status
+                            argocd app get cicd-demo --grpc-web --insecure
+                        """
+                    }
                 }
             }
         }
