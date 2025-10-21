@@ -25,10 +25,10 @@ class HealthControllerTest {
     @Test
     void testHealthEndpoint() {
         ResponseEntity<Map> response = restTemplate.getForEntity(
-            "http://localhost:" + port + "/health", 
+            "http://localhost:" + port + "/health",
             Map.class
         );
-        
+
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("UP", response.getBody().get("status"));
@@ -37,10 +37,10 @@ class HealthControllerTest {
     @Test
     void testRootEndpoint() {
         ResponseEntity<Map> response = restTemplate.getForEntity(
-            "http://localhost:" + port + "/", 
+            "http://localhost:" + port + "/",
             Map.class
         );
-        
+
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("running", response.getBody().get("status"));
@@ -49,10 +49,10 @@ class HealthControllerTest {
     @Test
     void testInfoEndpoint() {
         ResponseEntity<Map> response = restTemplate.getForEntity(
-            "http://localhost:" + port + "/info", 
+            "http://localhost:" + port + "/info",
             Map.class
         );
-        
+
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("cicd-demo", response.getBody().get("application"));
