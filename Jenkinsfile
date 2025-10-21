@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Harbor
-        HARBOR_REGISTRY = 'localhost:8082'
+        HARBOR_REGISTRY = 'host.docker.internal:8082'
         HARBOR_PROJECT = 'cicd-demo'
         IMAGE_NAME = 'app'
         IMAGE_TAG = "${BUILD_NUMBER}"
