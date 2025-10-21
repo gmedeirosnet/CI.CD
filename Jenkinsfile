@@ -220,12 +220,20 @@ pipeline {
         stage('Deploy with ArgoCD') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'argocd-auth-token', variable: 'ARGOCD_AUTH_TOKEN')]) {
+                    withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
+                                                     usernameVariable: 'ARGOCD_USER',
+                                                     passwordVariable: 'ARGOCD_PASS')]) {
                         sh """
                             # Set ArgoCD server - use host.docker.internal to reach host from container
                             export ARGOCD_SERVER='host.docker.internal:8090'
 
-                            # Token auth is automatic via ARGOCD_AUTH_TOKEN env var
+                            # Login to ArgoCD
+                            argocd login \${ARGOCD_SERVER} \
+                                --username \${ARGOCD_USER} \
+                                --password \${ARGOCD_PASS} \
+                                --grpc-web \
+                                --insecure
+
                             # Create ArgoCD application if it doesn't exist
                             argocd app create cicd-demo \
                                 --repo https://github.com/gmedeirosnet/CI.CD.git \
