@@ -31,7 +31,7 @@
       "description": "For experienced practitioners looking to master specific tools or scenarios",
       "approach": "Complex real-world scenarios, optimization, and best practices",
       "tools_order": [
-        "AWS EKS",
+        "Kind (K8s in Docker)",
         "ArgoCD",
         "Harbor",
         "Ansible",

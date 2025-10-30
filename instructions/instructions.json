@@ -2,15 +2,17 @@
   "project": "DevOps CI/CD Learning Laboratory",
   "objective": "Create a LAB environment for learning DevOps CI/CD deployment tools",
   "guidelines": [
-    "Store all AI-related files (instructions, prompts, tool sets, modes, documentation) in the ai directory",
+    "Store all AI-related files (instructions, prompts, tool sets, modes, documentation) in the instructions directory",
     "Create all AI files in JSON format",
     "Create documentation files in the docs directory",
     "Do not run Git commands without explicit permission",
-    "Do not use emojis in documentation"
+    "Do not use emojis in documentation",
+    "Use environment variables for configuration instead of hardcoded values",
+    "Follow security best practices for credential management"
   ],
   "focus_tools": [
     "ArgoCD",
-    "AWS EKS",
+    "Kind (K8s in Docker)",
     "Ansible",
     "Docker",
     "GitHub",

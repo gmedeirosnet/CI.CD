@@ -7,7 +7,7 @@
         "Install Docker and Docker Compose on local machine",
         "Set up GitHub repository for source code management",
         "Install and configure Jenkins for CI/CD pipeline",
-        "Deploy local Kubernetes cluster (minikube or kind) or provision AWS EKS",
+        "Deploy local Kubernetes cluster using Kind (Kubernetes in Docker)",
         "Install and configure ArgoCD for GitOps deployment",
         "Set up Harbor registry for container image storage",
         "Install Maven for Java application builds",
@@ -35,7 +35,7 @@
         {
           "phase": 3,
           "name": "Container Orchestration",
-          "tools": ["Kubernetes", "AWS EKS", "Helm Charts"],
+          "tools": ["Kubernetes", "Kind (K8s in Docker)", "Helm Charts"],
           "duration": "3-4 weeks"
         },
         {
@@ -61,7 +61,7 @@
         "Code quality analysis (SonarQube)",
         "Container image creation (Docker)",
         "Image registry (Harbor)",
-        "Container orchestration (Kubernetes/EKS)",
+        "Container orchestration (Kubernetes with Kind)",
         "Deployment automation (ArgoCD + Helm)",
         "Configuration management (Ansible)"
       ]

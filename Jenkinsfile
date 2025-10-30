@@ -2,18 +2,18 @@ pipeline {
     agent any
 
     environment {
-        // Harbor
-        HARBOR_REGISTRY = 'localhost:8082'
-        HARBOR_PROJECT = 'cicd-demo'
+        // Harbor - Load from credentials or environment
+        HARBOR_REGISTRY = "${env.HARBOR_REGISTRY ?: 'localhost:8082'}"
+        HARBOR_PROJECT = "${env.HARBOR_PROJECT ?: 'cicd-demo'}"
         IMAGE_NAME = 'app'
         IMAGE_TAG = "${BUILD_NUMBER}"
 
-        // SonarQube
-        SONAR_HOST = 'http://sonarqube:9000'
+        // SonarQube - Load from environment
+        SONAR_HOST = "${env.SONAR_HOST ?: 'http://sonarqube:9000'}"
 
-        // Kubernetes
+        // Kubernetes - Load from environment
         // KUBECONFIG = credentials('kubeconfig')  // Commented out - configure in Jenkins Credentials if needed
-        NAMESPACE = 'default'
+        NAMESPACE = "${env.KUBE_NAMESPACE ?: 'default'}"
     }
 
     stages {

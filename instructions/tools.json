@@ -9,12 +9,12 @@
       "prerequisites": ["Kubernetes", "Git", "YAML"]
     },
     {
-      "name": "AWS EKS",
+      "name": "Kind (K8s in Docker)",
       "category": "Container Orchestration",
-      "description": "Amazon Elastic Kubernetes Service - managed Kubernetes service",
-      "use_case": "Deploy, manage, and scale containerized applications using Kubernetes on AWS",
+      "description": "Kubernetes IN Docker - tool for running local Kubernetes clusters using Docker container nodes",
+      "use_case": "Local Kubernetes development and testing on Docker Desktop, perfect for macOS (M4) without cloud costs",
       "learning_priority": "high",
-      "prerequisites": ["Kubernetes", "Docker", "AWS basics"]
+      "prerequisites": ["Kubernetes basics", "Docker", "Container concepts"]
     },
     {
       "name": "Ansible",

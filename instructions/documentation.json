@@ -26,14 +26,13 @@
         "topics": [
           "Jenkins setup and pipeline creation",
           "Docker containerization",
-          "Kubernetes cluster management",
+          "Kubernetes cluster management with Kind",
           "ArgoCD GitOps deployment",
           "Ansible automation",
           "Harbor registry configuration",
           "Helm chart development",
           "Maven build configuration",
-          "SonarQube integration",
-          "AWS EKS deployment"
+          "SonarQube integration"
         ]
       },
       {
@@ -43,7 +42,7 @@
           "GitHub + Jenkins + ArgoCD workflow",
           "SonarQube + Jenkins integration",
           "Harbor + Kubernetes integration",
-          "Ansible + AWS EKS automation"
+          "Ansible + Kind Kubernetes automation"
         ]
       },
       {
