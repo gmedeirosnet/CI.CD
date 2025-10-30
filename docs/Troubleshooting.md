@@ -296,6 +296,81 @@ docker logs harbor-db
 lsof -i :5432
 ```
 
+### Cannot Create Project in Harbor
+
+**Symptom**: API returns 403 or project creation fails in UI
+
+**Solutions**:
+```bash
+# 1. Verify you're logged in as admin or project admin
+# Regular users cannot create projects unless given permission
+
+# 2. Create project via API with proper authentication
+curl -X POST "http://localhost:8082/api/v2.0/projects" \
+  -H "Content-Type: application/json" \
+  -u "admin:Harbor12345" \
+  -d '{
+    "project_name": "cicd-demo",
+    "public": false
+  }'
+
+# 3. Verify project doesn't already exist
+curl -X GET "http://localhost:8082/api/v2.0/projects?name=cicd-demo" \
+  -u "admin:Harbor12345"
+
+# 4. Check Harbor logs for errors
+docker-compose -f harbor/docker-compose.yml logs core
+```
+
+### Robot Account Creation Fails
+
+**Symptom**: `create-harbor-robot.sh` script fails with 403 or permission error
+
+**Solutions**:
+```bash
+# 1. Ensure cicd-demo project exists first
+# Check in Harbor UI: Projects tab
+
+# 2. Verify API user has project admin permissions
+# The 'jenkins' user must be a project admin or use 'admin' account
+
+# 3. Create robot account manually via UI
+# Harbor UI > Projects > cicd-demo > Robot Accounts > NEW ROBOT ACCOUNT
+# Name: robot-ci-cd-demo
+# Permissions: Push Artifact, Pull Artifact
+# Copy the token immediately (shown only once)
+
+# 4. If script requires jq and it's missing
+brew install jq  # macOS
+# Or let it use python3 fallback
+
+# 5. Test robot account credentials
+echo "ROBOT_TOKEN" | docker login localhost:8082 \
+  -u "robot\$robot-ci-cd-demo" --password-stdin
+```
+
+### Robot Account Token Lost
+
+**Symptom**: Need robot token but it wasn't saved during creation
+
+**Solutions**:
+```bash
+# Robot tokens are shown only once and cannot be retrieved
+# You must create a new robot account or regenerate the secret
+
+# 1. Delete old robot account
+# Harbor UI > Projects > cicd-demo > Robot Accounts
+# Find the robot, click Actions > Delete
+
+# 2. Create new robot account
+./scripts/create-harbor-robot.sh
+# Or create via UI and save token immediately
+
+# 3. Update Jenkins credentials with new token
+# Jenkins > Manage Jenkins > Credentials
+# Update the 'harbor-robot-credentials' password
+```
+
 ---
 
 ## Kind Kubernetes Issues

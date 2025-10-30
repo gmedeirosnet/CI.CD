@@ -132,7 +132,19 @@ If you prefer step-by-step setup:
 
 2. **Access Harbor** at http://localhost:8082
    - Login: admin / Harbor12345
-   - Create project: cicd-demo
+   - Create project `cicd-demo`:
+     - Click **Projects** > **NEW PROJECT**
+     - Set name: `cicd-demo`, Access Level: Private
+   - Create robot account (automated):
+     ```bash
+     cd scripts
+     ./create-harbor-robot.sh
+     ```
+   - Save the robot token shown (displayed only once)
+   - Add robot credentials in Jenkins:
+     - Manage Jenkins > Credentials
+     - Username: `robot$robot-ci-cd-demo`
+     - Password: (the token from script)
 
 3. **Configure Docker to use Harbor**
    ```bash
