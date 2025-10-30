@@ -371,6 +371,118 @@ argocd login localhost:8090
 2. ./scripts/setup-argocd-repo.sh
 ```
 
+### 4.3 Create Application in ArgoCD
+
+#### Method 1: Using ArgoCD UI
+1. Access ArgoCD UI at https://localhost:8090
+2. Login with credentials (admin / [password from step 4.1])
+3. Click **+ NEW APP** button in the top-left
+4. Fill in the application details:
+
+   **General:**
+   - **Application Name**: `cicd-demo`
+   - **Project**: `default`
+   - **Sync Policy**:
+     - Select `Automatic`
+     - Check `PRUNE RESOURCES` (removes resources deleted from Git)
+     - Check `SELF HEAL` (reverts manual changes)
+
+   **Source:**
+   - **Repository URL**: `https://github.com/yourusername/cicd-demo.git`
+   - **Revision**: `HEAD` or `main`
+   - **Path**: `helm-charts/cicd-demo`
+
+   **Destination:**
+   - **Cluster URL**: `https://kubernetes.default.svc` (in-cluster)
+   - **Namespace**: `default`
+
+   **Helm (if using Helm chart):**
+   - Leave values as default or customize as needed
+   - You can override values here or use values.yaml
+
+5. Click **CREATE** at the top
+6. The application will appear in the ArgoCD dashboard
+7. Click **SYNC** to deploy the application to the cluster
+8. Monitor the sync status and resource health
+
+#### Method 2: Using ArgoCD CLI
+```bash
+# Login to ArgoCD
+argocd login localhost:8090
+
+# Create application
+argocd app create cicd-demo \
+  --repo https://github.com/yourusername/cicd-demo.git \
+  --path helm-charts/cicd-demo \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
+
+# Sync application
+argocd app sync cicd-demo
+
+# Check status
+argocd app get cicd-demo
+
+# Watch sync progress
+argocd app wait cicd-demo --timeout 300
+```
+
+#### Method 3: Using Declarative YAML
+```bash
+# Create application manifest
+cat > argocd-apps/cicd-demo-app.yaml << 'EOF'
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cicd-demo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/yourusername/cicd-demo.git
+    targetRevision: HEAD
+    path: helm-charts/cicd-demo
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+EOF
+
+# Apply the manifest
+kubectl apply -f argocd-apps/cicd-demo-app.yaml
+
+# Verify application created
+argocd app get cicd-demo
+```
+
+**Important Notes:**
+- If using a private repository, add repository credentials in ArgoCD:
+  - Settings > Repositories > CONNECT REPO
+  - Choose connection method: HTTPS or SSH
+  - Provide credentials (username/password or SSH key)
+- Sync policy `automated` enables continuous deployment (GitOps)
+- `PRUNE RESOURCES` removes Kubernetes resources when removed from Git
+- `SELF HEAL` reverts manual kubectl changes back to Git state
+- For initial testing, you might want manual sync to control deployments
+
 ## Phase 5: Helm Charts Creation
 
 ### 5.1 Create Helm Chart
