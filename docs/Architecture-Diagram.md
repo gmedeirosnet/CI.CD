@@ -9,23 +9,23 @@ This document provides a comprehensive view of the DevOps CI/CD pipeline archite
 graph TB
     Dev[Developer] -->|git push| GH[GitHub Repository]
     GH -->|webhook| JK[Jenkins]
-    
+
     JK -->|1. Checkout| Code[Source Code]
     JK -->|2. Build| MVN[Maven Build]
     MVN -->|3. Test| Test[Unit Tests]
     MVN -->|4. Analyze| SQ[SonarQube]
-    
+
     JK -->|5. Build Image| DK[Docker Build]
     DK -->|6. Push| HB[Harbor Registry]
-    
+
     JK -->|7. Package| HLM[Helm Chart]
     HLM -->|8. Deploy| AC[ArgoCD]
     AC -->|9. Sync| K8S[Kind K8s Cluster]
-    
+
     AN[Ansible] -.->|Configure| K8S
-    
+
     K8S -->|Running App| APP[Application]
-    
+
     style Dev fill:#e1f5fe
     style GH fill:#fff3e0
     style JK fill:#f3e5f5
@@ -47,49 +47,49 @@ graph LR
         D1[Developer Workstation]
         D2[Git Client]
     end
-    
+
     subgraph "Source Control"
         SC1[GitHub Repository]
         SC2[Branches: main/dev]
         SC3[Pull Requests]
     end
-    
+
     subgraph "CI/CD Orchestration"
         J1[Jenkins Master]
         J2[Jenkins Agent]
         J3[Pipeline Scripts]
     end
-    
+
     subgraph "Build & Test"
         B1[Maven Build]
         B2[Unit Tests]
         B3[Integration Tests]
         SQ1[SonarQube Analysis]
     end
-    
+
     subgraph "Containerization"
         DC1[Dockerfile]
         DC2[Docker Build]
         DC3[Container Image]
     end
-    
+
     subgraph "Artifact Storage"
         H1[Harbor Registry]
         H2[Image Scanning]
         H3[Image Signing]
     end
-    
+
     subgraph "Package Management"
         HM1[Helm Chart]
         HM2[Chart Repository]
     end
-    
+
     subgraph "GitOps Deployment"
         AR1[ArgoCD]
         AR2[Application Sync]
         AR3[Health Monitoring]
     end
-    
+
     subgraph "Kubernetes Cluster - Kind"
         K1[Control Plane]
         K2[Worker Nodes]
@@ -97,13 +97,13 @@ graph LR
         K4[Services]
         K5[Ingress]
     end
-    
+
     subgraph "Configuration Management"
         AN1[Ansible]
         AN2[Playbooks]
         AN3[Inventory]
     end
-    
+
     D1 --> D2
     D2 --> SC1
     SC1 --> SC2
@@ -142,32 +142,32 @@ graph TD
     subgraph "Layer 1: Source"
         GitHub
     end
-    
+
     subgraph "Layer 2: CI"
         Jenkins
         Maven
         SonarQube
     end
-    
+
     subgraph "Layer 3: Containerization"
         Docker
         Harbor
     end
-    
+
     subgraph "Layer 4: Packaging"
         Helm
     end
-    
+
     subgraph "Layer 5: CD"
         ArgoCD
         Ansible
     end
-    
+
     subgraph "Layer 6: Runtime"
         Kind[Kind - K8s in Docker]
         App[Application]
     end
-    
+
     GitHub --> Jenkins
     Jenkins --> Maven
     Jenkins --> SonarQube
@@ -190,32 +190,32 @@ graph TB
                 CP[Control Plane<br/>:6443]
                 W1[Worker Node 1]
                 W2[Worker Node 2]
-                
+
                 subgraph "Pods"
                     APP1[App Pod 1<br/>:8080]
                     APP2[App Pod 2<br/>:8080]
                 end
             end
-            
+
             JC[Jenkins Container<br/>:8080]
             HC[Harbor Container<br/>:8082,:8443]
             SC[SonarQube Container<br/>:9000]
         end
-        
+
         LH[localhost]
     end
-    
+
     Internet[Internet] --> LH
     LH --> JC
     LH --> HC
     LH --> SC
     LH --> CP
-    
+
     CP --> W1
     CP --> W2
     W1 --> APP1
     W2 --> APP2
-    
+
     JC -.->|build/deploy| HC
     JC -.->|analysis| SC
     JC -.->|kubectl| CP
@@ -235,7 +235,7 @@ sequenceDiagram
     participant HL as Helm
     participant AC as ArgoCD
     participant K8 as Kind K8s
-    
+
     Dev->>GH: git push
     GH->>JK: webhook trigger
     JK->>GH: checkout code
@@ -265,43 +265,43 @@ graph TB
             SQ[SonarQube<br/>Static Analysis]
             UT[Unit Tests]
         end
-        
+
         subgraph "Image Security"
             HS[Harbor Scanning]
             IS[Image Signing]
             VS[Vulnerability Scanning]
         end
-        
+
         subgraph "Runtime Security"
             RBAC[K8s RBAC]
             NS[Network Policies]
             SA[Service Accounts]
             SEC[Security Contexts]
         end
-        
+
         subgraph "Secrets Management"
             KS[K8s Secrets]
             ENV[Environment Variables]
             HC[Harbor Credentials]
         end
     end
-    
+
     Code[Source Code] --> SQ
     Code --> UT
     SQ --> Build[Build Process]
     UT --> Build
-    
+
     Build --> Image[Container Image]
     Image --> HS
     HS --> IS
     IS --> VS
-    
+
     VS --> Deploy[Deployment]
     Deploy --> RBAC
     Deploy --> NS
     Deploy --> SA
     Deploy --> SEC
-    
+
     HC --> Image
     KS --> Deploy
     ENV --> Deploy
@@ -330,32 +330,32 @@ stateDiagram-v2
     Development --> CodeReview: Pull Request
     CodeReview --> Development: Changes Required
     CodeReview --> CI: Approved & Merged
-    
+
     CI --> Build: Maven Build
     Build --> Test: Unit Tests
     Test --> Analysis: SonarQube
     Analysis --> Failed: Quality Gate Failed
     Analysis --> Containerize: Quality Gate Passed
     Failed --> Development: Fix Issues
-    
+
     Containerize --> DockerBuild: Create Image
     DockerBuild --> HarborPush: Push Image
     HarborPush --> Scanning: Security Scan
     Scanning --> ScanFailed: Vulnerabilities Found
     Scanning --> Package: Scan Passed
     ScanFailed --> Development: Fix Security Issues
-    
+
     Package --> HelmPackage: Create Chart
     HelmPackage --> GitOps: Update Manifests
     GitOps --> ArgoCD: Sync Application
     ArgoCD --> Deploy: Apply to K8s
     Deploy --> Running: Pods Healthy
     Running --> Monitoring: Health Checks
-    
+
     Monitoring --> Running: Healthy
     Monitoring --> Rollback: Unhealthy
     Rollback --> Running: Previous Version
-    
+
     Running --> [*]: Successful Deployment
 ```
 
@@ -378,7 +378,7 @@ graph TB
     subgraph "Horizontal Scaling"
         HPA[Horizontal Pod Autoscaler]
         HPA --> Pods
-        
+
         subgraph "Pods"
             P1[Pod 1]
             P2[Pod 2]
@@ -386,7 +386,7 @@ graph TB
             PN[Pod N...]
         end
     end
-    
+
     subgraph "Load Distribution"
         SVC[Kubernetes Service]
         SVC --> P1
@@ -394,7 +394,7 @@ graph TB
         SVC --> P3
         SVC --> PN
     end
-    
+
     Metrics[Metrics Server] --> HPA
     Users[Users] --> Ingress[Ingress/LoadBalancer]
     Ingress --> SVC
@@ -409,14 +409,14 @@ graph LR
         Helm[Helm Charts]
         Config[Configuration Files]
     end
-    
+
     subgraph "Recovery"
         Clone[Clone Repository]
         Setup[Setup Infrastructure]
         Deploy[Deploy via ArgoCD]
         Verify[Verify Deployment]
     end
-    
+
     Git --> Clone
     Helm --> Clone
     Config --> Clone

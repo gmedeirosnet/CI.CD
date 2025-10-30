@@ -100,7 +100,7 @@ API Server:
   Port: 6443
   Protocol: HTTPS
   URL: https://127.0.0.1:6443
-  
+
 Control Plane:
   Container Port: 6443
   Mapped Port: 6443
@@ -131,7 +131,7 @@ Application Port:
 
 Health Endpoint:
   URL: http://localhost:8080/health
-  
+
 API Endpoints:
   Base URL: http://localhost:8080
 
@@ -150,7 +150,7 @@ Server Port:
   External: 8080 (HTTP redirect)
   External: 8443 (HTTPS)
   Internal: 8080
-  
+
 API Server:
   URL: localhost:8080
   gRPC Port: 8080

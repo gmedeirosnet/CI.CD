@@ -62,31 +62,100 @@ CI.CD/
 - 16GB RAM minimum (32GB recommended)
 - 50GB free disk space
 - macOS (M4 recommended), Linux, or Windows with WSL2
-- Docker Desktop installed (required for Kind)
+- Docker Desktop installed and running
 - GitHub account
 
-### Getting Started
+### Automated Setup
 
-1. **Clone the repository**
+The fastest way to get started:
+
+```bash
+# 1. Verify your environment meets prerequisites
+./scripts/verify-environment.sh
+
+# 2. Run the complete setup (takes 10-15 minutes)
+./scripts/setup-all.sh
+
+# 3. Access the services:
+# - Jenkins:   http://localhost:8080
+# - Harbor:    http://localhost:8082
+# - SonarQube: http://localhost:9000
+```
+
+### Manual Setup Steps
+
+If you prefer step-by-step setup:
+
+1. **Verify Prerequisites**
    ```bash
-   git clone https://github.com/gmedeirosnet/CI.CD.git
-   cd CI.CD
+   ./scripts/verify-environment.sh
    ```
 
-2. **Review the learning plan**
+2. **Configure Environment**
    ```bash
-   cat docs/StudyPlan.md
+   cp .env.template .env
+   # Edit .env with your GitHub token and other credentials
    ```
 
-3. **Follow the lab setup guide**
+3. **Create Kind Cluster**
    ```bash
-   cat docs/Lab-Setup-Guide.md
+   kind create cluster --config kind-config.yaml
    ```
 
-4. **Explore individual tool guides**
-   - Start with Docker for containerization basics
-   - Progress through the learning phases
-   - Complete hands-on exercises
+4. **Start Services**
+   ```bash
+   # Harbor
+   cd harbor && docker-compose up -d
+
+   # Jenkins
+   ./scripts/setup-jenkins-docker.sh
+
+   # SonarQube
+   ./scripts/setup-sonarqube.sh
+
+   # ArgoCD
+   kubectl create namespace argocd
+   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+   ```
+
+5. **Build Application**
+   ```bash
+   mvn clean package
+   ```
+
+### First Steps After Setup
+
+1. **Access Jenkins** at http://localhost:8080
+   - Get password: `docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword`
+   - Install suggested plugins
+   - Create admin user
+
+2. **Access Harbor** at http://localhost:8082
+   - Login: admin / Harbor12345
+   - Create project: cicd-demo
+
+3. **Configure Docker to use Harbor**
+   ```bash
+   # Add to Docker daemon.json:
+   {
+     "insecure-registries": ["localhost:8082"]
+   }
+   # Restart Docker Desktop
+   ```
+
+4. **Run your first pipeline**
+   - Create Jenkins pipeline from Jenkinsfile
+   - Trigger build
+   - Watch it build → test → push to Harbor
+
+### Cleanup
+
+```bash
+# Stop all services and optionally remove data
+./scripts/cleanup-all.sh
+```
+
+---
 
 ## Learning Path
 
@@ -106,6 +175,9 @@ CI.CD/
 - Helm
 
 ### Phase 4: Configuration and Deployment (2-3 weeks)
+- Ansible automation
+- ArgoCD GitOps
+- Harbor security
 
 ### Phase 5: Integration (4-6 weeks)
 - Complete pipeline
@@ -124,35 +196,93 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                     Ansible Configuration
 ```
 
-## Key Features
+## Key Features## Key Resources
+
+### Essential Documentation
+- [Architecture Diagram](docs/Architecture-Diagram.md) - Visual pipeline overview
+- [Lab Setup Guide](docs/#Lab-Setup-Guide.md) - Complete setup instructions
+- [Port Reference](docs/Port-Reference.md) - All service ports and URLs
+- [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
+- [Cleanup Guide](docs/Cleanup-Guide.md) - Teardown procedures
+
+### Tool-Specific Guides
+- [Docker](docs/Docker.md) - Containerization
+- [Jenkins](docs/Jenkins.md) - CI/CD automation
+- [Harbor](docs/Harbor.md) - Container registry
+- [Kind](docs/Kind-K8s.md) - Local Kubernetes
+- [Helm](docs/Helm-Charts.md) - Package management
+- [ArgoCD](docs/ArgoCD.md) - GitOps deployment
+- [SonarQube](docs/SonarQube.md) - Code quality
+- [Maven](docs/Maven.md) - Build automation
+- [Ansible](docs/Ansible.md) - Configuration management
+
+### Learning Materials
+- [Study Plan](docs/StudyPlan.md) - DevOps learning curriculum
+- [Project Overview](docs/Project-Overview.md) - Detailed project information
+
+## What's Included
 
 - Complete CI/CD pipeline implementation
 - Hands-on labs for each tool
-- Real-world examples and scenarios
+- Real-world Spring Boot demo application
+- Kubernetes deployment examples
+- Helm charts and manifests
+- Jenkins pipeline scripts
+- Docker configurations
+- Ansible playbooks
 - Best practices and security guidelines
 - Troubleshooting guides
 - Integration patterns
-- Production-ready configurations
+- Automated setup scripts
 
-## Documentation Highlights
+## Project Structure
 
-### Tool Guides
-Each tool has a comprehensive guide including:
-- Introduction and key features
-- Installation instructions
-- Basic and advanced usage
-- Integration with other tools
-- Best practices
-- Troubleshooting
-- References and resources
-
-### Lab Setup Guide
-Step-by-step instructions for:
-- Setting up the complete environment
-- Creating sample applications
-- Implementing the full pipeline
-- Testing and validation
-- Monitoring and optimization
+```
+CI.CD/
+├── .env.template           # Environment variables template
+├── .gitignore             # Git ignore rules
+├── Dockerfile             # Application container image
+├── Jenkinsfile            # CI/CD pipeline definition
+├── pom.xml                # Maven project configuration
+├── kind-config.yaml       # Kubernetes cluster config
+│
+├── docs/                  # Comprehensive documentation
+│   ├── Architecture-Diagram.md
+│   ├── Port-Reference.md
+│   ├── Troubleshooting.md
+│   ├── Cleanup-Guide.md
+│   └── [Tool Guides...]
+│
+├── scripts/               # Automation scripts
+│   ├── setup-all.sh      # Complete environment setup
+│   ├── verify-environment.sh
+│   ├── cleanup-all.sh
+│   └── [Setup Scripts...]
+│
+├── src/                   # Demo Spring Boot application
+│   ├── main/java/
+│   └── test/java/
+│
+├── helm-charts/          # Kubernetes Helm charts
+│   └── cicd-demo/
+│
+├── k8s/                  # Kubernetes manifests
+│   └── sample-app/
+│
+├── ansible/              # Ansible configurations
+│   └── inventory.ini
+│
+├── harbor/               # Harbor registry setup
+│   └── docker-compose.yml
+│
+├── argocd-apps/         # ArgoCD applications
+│   └── sample-nginx-app.yaml
+│
+└── instructions/         # JSON configs for AI assistance
+    ├── instructions.json
+    ├── tools.json
+    └── [Config Files...]
+```
 
 ## Use Cases
 
