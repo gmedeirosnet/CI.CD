@@ -584,6 +584,77 @@ mvn sonar:sonar -Dsonar.host.url=http://localhost:9000
 # 4. Save token immediately (shown only once)
 ```
 
+### Jenkins Cannot Connect to SonarQube
+
+**Symptom**: `Failed to connect to localhost/[0:0:0:0:0:0:0:1]:9000: Connection refused`
+
+**Root Cause**: Jenkins is trying to connect to SonarQube using `localhost`, but inside the Jenkins container, `localhost` refers to the Jenkins container itself, not the host machine or the SonarQube container.
+
+**Solutions**:
+
+```bash
+# 1. Verify both containers are on the same Docker network
+docker network inspect cicd-network | grep -E 'jenkins|sonarqube'
+
+# Expected: You should see both containers listed
+
+# 2. If Jenkins is NOT on the network, connect it
+docker network connect cicd-network jenkins
+
+# 3. Verify SonarQube is accessible from Jenkins
+docker exec jenkins curl -I http://sonarqube:9000
+
+# Expected: HTTP/1.1 200 or 302
+```
+
+**Fix Jenkins SonarQube Configuration**:
+
+1. **Check Jenkins SonarQube Server URL**:
+   - Go to **Manage Jenkins** > **System**
+   - Scroll to **SonarQube servers**
+   - Verify **Server URL** is: `http://sonarqube:9000` (NOT `http://localhost:9000`)
+   - If wrong, update it and click **Save**
+
+2. **Verify Environment Variable** (if used):
+   ```bash
+   # In your Jenkins job configuration or Jenkinsfile
+   # Ensure SONAR_HOST uses container name:
+   SONAR_HOST = 'http://sonarqube:9000'  # CORRECT
+   # NOT:
+   # SONAR_HOST = 'http://localhost:9000'  # WRONG - won't work in container
+   ```
+
+3. **Test Connection from Jenkins**:
+   ```bash
+   # SSH into Jenkins container
+   docker exec -it jenkins bash
+
+   # Test connection using container name
+   curl http://sonarqube:9000/api/system/status
+
+   # Expected output: {"id":"...","version":"...","status":"UP"}
+
+   # Exit container
+   exit
+   ```
+
+4. **Restart Jenkins after configuration change**:
+   ```bash
+   docker restart jenkins
+
+   # Wait 30 seconds for Jenkins to start
+   sleep 30
+   ```
+
+5. **Re-run the pipeline** and verify the SonarQube stage succeeds
+
+**Prevention**:
+- Always use **container names** (not `localhost`) when connecting between Docker containers
+- Use `localhost` only when accessing services from the **host machine** (your computer)
+- Container-to-container communication requires:
+  - Both containers on the same Docker network
+  - Using container names or service names for addressing
+
 ---
 
 ## ArgoCD Problems

@@ -208,6 +208,8 @@ chmod +x scripts/setup-jenkins-docker.sh
 ```
 
 ### 2.2 Install SonarQube
+
+#### Step 1: Start SonarQube with Docker Compose
 ```bash
 # Create docker-compose.yml for SonarQube
 cat > sonar-compose.yml << 'EOF'
@@ -255,12 +257,104 @@ volumes:
   postgresql_data:
 EOF
 
+# Start SonarQube
 docker-compose -f sonar-compose.yml up -d
 
-# Access SonarQube at http://localhost:9000
-# Login: admin / admin (change password)
-# Generate token: User > My Account > Security > Generate Token
+# Wait for SonarQube to start (can take 2-3 minutes)
+echo "Waiting for SonarQube to start..."
+sleep 60
+
+# Watch logs (wait for "SonarQube is operational")
+docker-compose -f sonar-compose.yml logs -f sonarqube
+# Press Ctrl+C when you see "SonarQube is operational"
 ```
+
+#### Step 2: Configure SonarQube
+```bash
+# Access SonarQube at http://localhost:9000
+# Login: admin / admin
+# You will be prompted to change the password (e.g., to admin123)
+```
+
+**Generate Authentication Token:**
+1. Click on your profile icon (top right) → **My Account**
+2. Click **Security** tab
+3. Under "Generate Tokens":
+   - Token Name: `Jenkins`
+   - Type: `Global Analysis Token`
+   - Expires in: `No expiration` (or choose duration)
+4. Click **Generate**
+5. **COPY THE TOKEN immediately** (shown only once!)
+   - Example: `squ_1234567890abcdefghijklmnopqrstuvwxyz`
+
+**Create SonarQube Project:**
+1. Click **"+ Create Project"** (top right)
+2. Choose **Manually**
+3. Enter:
+   - Project key: `cicd-demo`
+   - Display name: `CI/CD Demo`
+4. Click **Set Up**
+5. Choose baseline: **Previous version**
+6. Click **Create project**
+
+#### Step 3: Configure Jenkins for SonarQube
+
+**Install SonarQube Scanner Plugin:**
+1. Open Jenkins: http://localhost:8080
+2. Go to **Manage Jenkins** → **Plugins**
+3. Click **Available plugins** tab
+4. Search: `SonarQube Scanner`
+5. Check **SonarQube Scanner for Jenkins**
+6. Click **Install**
+7. Check **Restart Jenkins when installation is complete**
+
+Wait for Jenkins to restart (~30 seconds).
+
+**Configure SonarQube Server in Jenkins:**
+1. **Manage Jenkins** → **System** (or **Configure System**)
+2. Scroll to **SonarQube servers**
+3. Check **Environment variables** → **Enable injection of SonarQube server configuration**
+4. Click **Add SonarQube**
+5. Fill in:
+   - **Name:** `SonarQube` (⚠️ must match name in Jenkinsfile!)
+   - **Server URL:** `http://sonarqube:9000` (⚠️ use container name, NOT localhost!)
+   - **Server authentication token:**
+     - Click **Add** → **Jenkins**
+     - Kind: **Secret text**
+     - Secret: Paste the token you generated in SonarQube
+     - ID: `sonarqube-token`
+     - Description: `SonarQube Authentication Token`
+     - Click **Add**
+     - Select the newly created credential from dropdown
+6. Click **Save**
+
+**Configure SonarQube Scanner Tool:**
+1. **Manage Jenkins** → **Tools**
+2. Scroll to **SonarQube Scanner**
+3. Click **Add SonarQube Scanner**
+4. Fill in:
+   - **Name:** `SonarQube Scanner`
+   - Check **Install automatically**
+   - Choose latest version from dropdown
+5. Click **Save**
+
+**⚠️ Critical: Ensure Network Connectivity**
+```bash
+# Verify both Jenkins and SonarQube are on cicd-network
+docker network inspect cicd-network | grep -E 'jenkins|sonarqube'
+
+# If Jenkins is missing, connect it:
+docker network connect cicd-network jenkins
+
+# Test connection from Jenkins to SonarQube
+docker exec jenkins curl -I http://sonarqube:9000
+# Expected: HTTP/1.1 200 or HTTP/1.1 302
+```
+
+**Common Issues:**
+- If SonarQube stage fails with "Connection refused", the issue is network configuration
+- Always use `http://sonarqube:9000` (container name), NOT `http://localhost:9000`
+- See `docs/Troubleshooting.md` section "Jenkins Cannot Connect to SonarQube"
 
 ### 2.3 Install Harbor
 Go to the Harbor directory and run the installation script:
