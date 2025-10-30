@@ -457,6 +457,137 @@ kind delete cluster
 kind create cluster --config kind-config.yaml
 ```
 
+### Kind Cannot Pull Images from Harbor (localhost:8082)
+
+**Symptom**: `ErrImagePull: failed to resolve reference "localhost:8082/cicd-demo/app:latest": dial tcp [::1]:8082: connect: connection refused`
+
+**Root Cause**: Kind cluster nodes run inside Docker containers. When they try to pull from `localhost:8082`, they're looking inside their own container, not at the host machine where Harbor is running.
+
+**Solutions:**
+
+#### **Option 1: Load Images Directly into Kind (Recommended for Local Development)**
+
+This is the fastest solution for local testing:
+
+```bash
+# After building and pushing to Harbor, load the image into Kind
+docker pull localhost:8082/cicd-demo/app:latest
+kind load docker-image localhost:8082/cicd-demo/app:latest --name cicd-demo-cluster
+
+# Verify image is loaded
+docker exec cicd-demo-cluster-control-plane crictl images | grep cicd-demo
+
+# Now Kubernetes can use the image without pulling from registry
+```
+
+**Add to Jenkinsfile after Harbor push:**
+```groovy
+stage('Load Image into Kind') {
+    steps {
+        sh """
+            # Load image into Kind cluster
+            kind load docker-image ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
+                --name cicd-demo-cluster
+
+            # Also load the latest tag
+            kind load docker-image ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
+                --name cicd-demo-cluster
+        """
+    }
+}
+```
+
+#### **Option 2: Configure Kind to Access Harbor Registry**
+
+Update `kind-config.yaml` to configure containerd for insecure registry:
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cicd-demo-cluster
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:8082"]
+    endpoint = ["http://host.docker.internal:8082"]
+  [plugins."io.containerd.grpc.v1.cri".registry.configs."host.docker.internal:8082".tls]
+    insecure_skip_verify = true
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30000
+    hostPort: 30000
+    protocol: TCP
+  - containerPort: 30001
+    hostPort: 30001
+    protocol: TCP
+  - containerPort: 30002
+    hostPort: 30002
+    protocol: TCP
+- role: worker
+- role: worker
+```
+
+Then recreate the cluster:
+```bash
+kind delete cluster --name cicd-demo-cluster
+kind create cluster --config kind-config.yaml
+```
+
+**Update Helm values.yaml:**
+```yaml
+image:
+  repository: host.docker.internal:8082/cicd-demo/app
+  pullPolicy: Always
+  tag: "latest"
+```
+
+#### **Option 3: Connect Harbor to Docker Network**
+
+Make Harbor accessible via Docker's internal network:
+
+```bash
+# 1. Find the Kind network
+docker network ls | grep kind
+
+# 2. Connect Harbor to the Kind network
+docker network connect kind harbor
+
+# 3. Get Harbor's IP in the Kind network
+HARBOR_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' harbor)
+echo "Harbor IP: $HARBOR_IP"
+
+# 4. Update Helm values to use Harbor's IP
+# In values.yaml:
+# repository: <HARBOR_IP>:8082/cicd-demo/app
+```
+
+#### **Option 4: Use imagePullPolicy: Never (Development Only)**
+
+For local development, you can skip registry pulls entirely:
+
+```yaml
+# In helm-charts/cicd-demo/values.yaml
+image:
+  repository: localhost:8082/cicd-demo/app
+  pullPolicy: Never  # Don't try to pull, use local image only
+  tag: "latest"
+```
+
+Then always load images into Kind using Option 1.
+
+**Comparison:**
+
+| Option | Pros | Cons | Best For |
+|--------|------|------|----------|
+| 1. Load directly | Fast, simple, no config changes | Manual step after each build | Local development |
+| 2. Configure containerd | Proper registry integration | Requires cluster recreation | Production-like testing |
+| 3. Connect networks | Works with original config | Network complexity | Advanced setups |
+| 4. imagePullPolicy: Never | No registry needed | Must always load manually | Quick testing |
+
+**Recommended Approach for This Lab:**
+
+Use **Option 1** (load images directly) combined with **Option 4** (imagePullPolicy: Never) for the simplest local development experience.
+
 ---
 
 ## Maven Build Problems
