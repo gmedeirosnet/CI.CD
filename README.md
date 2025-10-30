@@ -61,7 +61,7 @@ CI.CD/
 ### Prerequisites
 - 16GB RAM minimum (32GB recommended)
 - 50GB free disk space
-- macOS (M4 recommended), Linux, or Windows with WSL2
+- macOS (M1 recommended), Linux, or Windows with WSL2
 - Docker Desktop installed and running
 - GitHub account
 
