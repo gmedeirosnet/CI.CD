@@ -193,28 +193,6 @@ pipeline {
             }
         }
 
-        stage('Load Image into Kind') {
-            steps {
-                script {
-                    sh """
-                        echo "Loading images into Kind cluster..."
-
-                        # Load the specific build tag
-                        kind load docker-image ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
-                            --name cicd-demo-cluster
-
-                        # Load the latest tag
-                        kind load docker-image ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
-                            --name cicd-demo-cluster
-
-                        # Verify images are loaded
-                        echo "Verifying images in Kind cluster:"
-                        docker exec cicd-demo-cluster-control-plane crictl images | grep ${IMAGE_NAME} || true
-                    """
-                }
-            }
-        }
-
         stage('Update Helm Chart') {
             steps {
                 script {

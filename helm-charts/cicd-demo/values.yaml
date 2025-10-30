@@ -3,7 +3,7 @@ replicaCount: 2
 image:
   # Override with --set image.repository=${HARBOR_REGISTRY}/${HARBOR_PROJECT}/app
   repository: localhost:8082/cicd-demo/app
-  pullPolicy: Never  # Use locally loaded images only (loaded via kind load docker-image)
+  pullPolicy: IfNotPresent
   # Override with --set image.tag=${BUILD_NUMBER}
   tag: "latest"
 
