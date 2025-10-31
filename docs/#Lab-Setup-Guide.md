@@ -127,6 +127,8 @@ EOF
 ## Phase 2: CI/CD Tools Installation
 
 ### 2.1 Install Jenkins
+
+#### Step 1: Create Docker Network and Run Jenkins Container
 ```bash
 # Create Docker network for CI/CD tools
 docker network create cicd-network
@@ -145,7 +147,15 @@ docker run -d \
 # Wait for Jenkins to start (30-60 seconds)
 echo "Waiting for Jenkins to start..."
 sleep 30
+```
 
+**Important Notes:**
+- Docker socket mounting (`/var/run/docker.sock`) gives Jenkins access to build Docker images
+- Port 8080 is for web UI, port 50000 is for Jenkins agents
+- Volume `jenkins_home` persists Jenkins data between restarts
+
+#### Step 2: Install Docker CLI and ArgoCD CLI in Jenkins Container
+```bash
 # Install Docker CLI in Jenkins container
 echo "Installing Docker CLI in Jenkins..."
 
@@ -180,25 +190,45 @@ docker exec -u root jenkins bash -c "
 
 # Verify ArgoCD CLI
 docker exec jenkins argocd version --client
-
-# Get initial admin password
-echo "Jenkins Initial Admin Password:"
-docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-
-# Access Jenkins at http://localhost:8080
-# Complete setup wizard
-# Install suggested plugins plus:
-# - Docker Pipeline
-# - SonarQube Scanner
-# - Kubernetes CLI
-# - Ansible
 ```
 
-**Important Notes:**
-- Docker socket mounting gives Jenkins access to build Docker images
-- The script automatically detects ARM64 (Apple Silicon) or AMD64 architecture
-- Docker CLI must be installed inside the Jenkins container
-- Permissions on Docker socket may need adjustment (chmod 666)
+**Why These Tools?**
+- **Docker CLI**: Allows Jenkins to build and push Docker images
+- **ArgoCD CLI**: Enables Jenkins to trigger deployments to Kubernetes
+- Script automatically detects ARM64 (Apple Silicon) or AMD64 architecture
+
+#### Step 3: Configure Jenkins Initial Setup
+
+**Get Initial Admin Password:**
+```bash
+echo "Jenkins Initial Admin Password:"
+docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+**Access Jenkins and Complete Setup:**
+1. Open Jenkins at http://localhost:8080
+2. Enter the initial admin password from above
+3. Click **Install suggested plugins**
+4. Wait for plugin installation to complete (~2-3 minutes)
+5. Create your first admin user:
+   - Username: `admin`
+   - Password: (choose a secure password)
+   - Full name: Your name
+   - Email: Your email
+6. Click **Save and Continue**
+7. Confirm Jenkins URL (default: http://localhost:8080)
+8. Click **Save and Finish**
+
+**Install Additional Required Plugins:**
+1. Go to **Manage Jenkins** → **Plugins**
+2. Click **Available plugins** tab
+3. Search and install:
+   - ✅ **Docker Pipeline**
+   - ✅ **SonarQube Scanner** (for code quality)
+   - ✅ **Kubernetes CLI** (for kubectl commands)
+   - ✅ **Pipeline: Stage View** (better visualization)
+4. Check **Restart Jenkins when installation is complete**
+5. Wait for Jenkins to restart (~30 seconds)
 
 **Alternative: Use Automated Setup Script**
 ```bash
