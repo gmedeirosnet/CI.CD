@@ -21,7 +21,7 @@ services:
     ports:
       - 127.0.0.1:1514:10514
     networks:
-      - harbor
+      - cicd-network
   registry:
     image: goharbor/registry-photon:v2.14.0
     container_name: registry
@@ -42,7 +42,7 @@ services:
         source: ./common/config/shared/trust-certificates
         target: /harbor_cust_cert
     networks:
-      - harbor
+      - cicd-network
     depends_on:
       - log
     logging:
@@ -72,7 +72,7 @@ services:
         source: ./common/config/shared/trust-certificates
         target: /harbor_cust_cert
     networks:
-      - harbor
+      - cicd-network
     depends_on:
       - log
     logging:
@@ -160,7 +160,7 @@ services:
         source: ./common/config/portal/nginx.conf
         target: /etc/nginx/nginx.conf
     networks:
-      - harbor
+      - cicd-network
     depends_on:
       - log
     logging:
@@ -190,7 +190,7 @@ services:
         source: ./common/config/shared/trust-certificates
         target: /harbor_cust_cert
     networks:
-      - harbor
+      - cicd-network
     depends_on:
       - core
     logging:
@@ -236,7 +236,7 @@ services:
         source: ./common/config/shared/trust-certificates
         target: /harbor_cust_cert
     networks:
-      - harbor
+      - cicd-network
     ports:
       - 8082:8080
     depends_on:
@@ -259,7 +259,7 @@ services:
       - log
       - redis
     networks:
-      - harbor
+      - cicd-network
     volumes:
       - type: bind
         source: /Users/gutembergmedeiros/Labs/CI.CD/harbor/data/trivy-adapter/trivy
