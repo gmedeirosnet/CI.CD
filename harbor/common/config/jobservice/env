@@ -1,6 +1,6 @@
-CORE_SECRET=zHmwRFpiJ6YpLLiZ
+CORE_SECRET=LEMTSqEQshJhTE6e
 REGISTRY_URL=http://registry:5000
-JOBSERVICE_SECRET=wQXuT2B1cVBqgYfs
+JOBSERVICE_SECRET=PdRsrcLAlwVUJivM
 CORE_URL=http://core:8080
 REGISTRY_CONTROLLER_URL=http://registryctl:8080
 JOBSERVICE_WEBHOOK_JOB_MAX_RETRY=3
@@ -11,9 +11,9 @@ LOG_LEVEL=info
 
 HTTP_PROXY=
 HTTPS_PROXY=
-NO_PROXY=.local,portal,postgresql,db,trivy-adapter,registry,core,127.0.0.1,exporter,.internal,nginx,log,localhost,redis,jobservice,registryctl
+NO_PROXY=localhost,nginx,log,redis,portal,jobservice,exporter,.local,postgresql,trivy-adapter,127.0.0.1,db,registryctl,.internal,registry,core
 REGISTRY_CREDENTIAL_USERNAME=harbor_registry_user
-REGISTRY_CREDENTIAL_PASSWORD=MNXxyPz2olDcmFJ0O84FtHGPuZaCWQWE
+REGISTRY_CREDENTIAL_PASSWORD=nHKNRIJYh6oF2Do4oM4lZ4EbPbadBR5X
 
 
 

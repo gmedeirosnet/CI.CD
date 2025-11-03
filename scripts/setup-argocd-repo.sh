@@ -17,6 +17,39 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Step 0: Install ArgoCD if not present
+echo -e "${YELLOW}Step 0: Checking ArgoCD installation...${NC}"
+if ! kubectl get namespace argocd &> /dev/null; then
+    echo -e "${YELLOW}ArgoCD not found. Installing ArgoCD...${NC}"
+
+    # Create namespace
+    echo "  Creating argocd namespace..."
+    kubectl create namespace argocd
+
+    # Install ArgoCD
+    echo "  Installing ArgoCD manifests..."
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+    # Wait for pods to be ready
+    echo "  Waiting for ArgoCD pods to be ready (this may take 2-3 minutes)..."
+    kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ ArgoCD installed successfully${NC}"
+    else
+        echo -e "${RED}Error: ArgoCD installation timed out or failed${NC}"
+        exit 1
+    fi
+else
+    echo -e "${GREEN}✓ ArgoCD namespace already exists${NC}"
+    # Check if pods are running
+    if ! kubectl get pods -n argocd | grep -q "Running"; then
+        echo -e "${YELLOW}ArgoCD pods are not all running yet. Waiting...${NC}"
+        kubectl wait --for=condition=Ready pods --all -n argocd --timeout=300s
+    fi
+fi
+echo ""
+
 # Step 1: Check if ArgoCD is running
 echo -e "${YELLOW}Step 1: Checking ArgoCD status...${NC}"
 if ! kubectl get namespace argocd &> /dev/null; then
