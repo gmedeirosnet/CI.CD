@@ -387,21 +387,107 @@ docker exec jenkins curl -I http://sonarqube:9000
 - See `docs/Troubleshooting.md` section "Jenkins Cannot Connect to SonarQube"
 
 ### 2.3 Install Harbor
+
+#### Step 1: Install Harbor
 Go to the Harbor directory and run the installation script:
 ```bash
 cd harbor
 sudo ./install.sh --with-trivy
 ```
 
-- On the Harbor install directory, change the docker-compose.yml to map the database volume to a local directory for persistence:
+On the Harbor install directory, change the docker-compose.yml to map the database volume to a local directory for persistence:
 ```yaml
     volumes:
       - /Users/gutembergmedeiros/Labs/CI.CD/harbor/data/database:/var/lib/postgresql/data:z #Customize here with your local directory
 ```
 
-- Access Harbor at http://localhost:8082
-- Login: admin / Harbor12345
-- Create project: cicd-demo
+#### Step 2: Configure Harbor and Create Project
+```bash
+# Access Harbor at http://localhost:8082
+# Login: admin / Harbor12345
+```
+
+**Create Project (Choose one method):**
+
+**Method 1: Using Harbor UI**
+1. After logging in, click **"+ NEW PROJECT"** button
+2. Fill in:
+   - **Project Name:** `cicd-demo`
+   - **Access Level:** Keep as **Public** (or Private if you prefer)
+   - **Storage Quota:** `-1` (unlimited) or set a specific limit
+3. Click **OK**
+
+**Method 2: Using API**
+```bash
+curl -X POST "http://localhost:8082/api/v2.0/projects" \
+  -u "admin:Harbor12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_name": "cicd-demo",
+    "public": true
+  }'
+```
+
+#### Step 3: Create Robot Account for Jenkins
+The robot account allows Jenkins to push images to Harbor without using admin credentials.
+
+**Automated Method (Recommended):**
+```bash
+# Make script executable and run
+chmod +x scripts/create-harbor-robot.sh
+./scripts/create-harbor-robot.sh
+```
+
+The script will:
+- Query Harbor for the `cicd-demo` project
+- Create a robot account named `robot-ci-cd-demo`
+- Display the robot token (copy it immediately - shown only once!)
+- Provide instructions for Jenkins credential configuration
+
+**Manual Method (Using Harbor UI):**
+1. Go to **Projects** → **cicd-demo** → **Robot Accounts**
+2. Click **+ NEW ROBOT ACCOUNT**
+3. Fill in:
+   - **Name:** `robot-ci-cd-demo`
+   - **Description:** `Robot account for Jenkins CI`
+   - **Expiration time:** Never Expire (or set duration)
+   - **Permissions:** Select **Push Artifact** and **Pull Artifact**
+4. Click **ADD**
+5. **IMPORTANT:** Copy the token shown (it's displayed only once!)
+   - Token will look like: `eyJhbGc...` (very long string)
+
+**Configure Jenkins Credential:**
+1. Go to Jenkins: http://localhost:8080
+2. **Manage Jenkins** → **Credentials**
+3. Click on **(global)** domain
+4. Click **Add Credentials**
+5. Fill in:
+   - **Kind:** Username with password
+   - **Username:** `robot$robot-ci-cd-demo` (note the `$` symbol)
+   - **Password:** [paste the robot token]
+   - **ID:** `harbor-robot`
+   - **Description:** `Harbor Robot Account for CI/CD Demo`
+6. Click **Create**
+
+**Verify Robot Account:**
+```bash
+# Test Docker login with robot account (replace <TOKEN> with actual token)
+echo "<TOKEN>" | docker login localhost:8082 -u "robot\$robot-ci-cd-demo" --password-stdin
+
+# Test push
+docker pull busybox:latest
+docker tag busybox:latest localhost:8082/cicd-demo/busybox-test:v1
+docker push localhost:8082/cicd-demo/busybox-test:v1
+
+# Verify in Harbor UI: Projects → cicd-demo → Repositories
+```
+
+**Important Notes:**
+- The robot account username format is `robot$<robot-name>` (with `$` separator)
+- In shell commands, escape the `$` as `\$` to prevent variable expansion
+- In Jenkins credentials, use `robot$robot-ci-cd-demo` (no escape needed)
+- If you lose the token, you must create a new robot account
+- For production, set expiration time and use minimal permissions
 
 ## Phase 3: Kind (Kubernetes in Docker) Setup
 
