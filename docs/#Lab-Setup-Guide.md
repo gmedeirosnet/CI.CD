@@ -317,16 +317,6 @@ docker-compose -f sonar-compose.yml logs -f sonarqube
 5. **COPY THE TOKEN immediately** (shown only once!)
    - Example: `squ_1234567890abcdefghijklmnopqrstuvwxyz`
 
-**Create SonarQube Project:**
-1. Click **"+ Create Project"** (top right)
-2. Choose **Manually**
-3. Enter:
-   - Project key: `cicd-demo`
-   - Display name: `CI/CD Demo`
-4. Click **Set Up**
-5. Choose baseline: **Previous version**
-6. Click **Create project**
-
 #### Step 3: Configure Jenkins for SonarQube
 
 **Install SonarQube Scanner Plugin:**
