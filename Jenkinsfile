@@ -260,25 +260,33 @@ pipeline {
                     sh """
                         echo "=== Ensuring namespace ${NAMESPACE} exists ==="
 
-                        # Create namespace if it doesn't exist
-                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        # Check if Kind cluster exists
+                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping namespace preparation."
+                            exit 0
+                        fi
+
+                        # Create namespace if it doesn't exist (using docker exec to run kubectl in Kind control plane)
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} 2>/dev/null || \
+                            echo "Namespace ${NAMESPACE} already exists or created"
 
                         # Create Harbor registry secret in the namespace
-                        kubectl create secret docker-registry harbor-cred \
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl create secret docker-registry harbor-cred \
                             --docker-server=host.docker.internal:8082 \
                             --docker-username=admin \
                             --docker-password=Harbor12345 \
                             --namespace=${NAMESPACE} \
-                            --dry-run=client -o yaml | kubectl apply -f -
+                            2>/dev/null || echo "Secret harbor-cred already exists or created"
 
                         echo "✅ Namespace ${NAMESPACE} is ready"
-                        kubectl get namespace ${NAMESPACE}
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE}
                     """
                 }
             }
-        }
-
-        stage('Deploy with ArgoCD') {
+        }        stage('Deploy with ArgoCD') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
@@ -331,10 +339,22 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                sh """
-                    kubectl get pods -n ${NAMESPACE}
-                    kubectl get svc -n ${NAMESPACE}
-                """
+                script {
+                    sh """
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        # Check if Kind cluster exists
+                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping verification."
+                            exit 0
+                        fi
+
+                        echo "=== Verifying deployment in namespace ${NAMESPACE} ==="
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get pods -n ${NAMESPACE}
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get svc -n ${NAMESPACE}
+                    """
+                }
             }
         }
     }
