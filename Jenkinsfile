@@ -13,7 +13,7 @@ pipeline {
 
         // Kubernetes - Load from environment
         // KUBECONFIG = credentials('kubeconfig')  // Commented out - configure in Jenkins Credentials if needed
-        NAMESPACE = "${env.KUBE_NAMESPACE ?: 'default'}"
+        NAMESPACE = "${env.KUBE_NAMESPACE ?: 'app-demo'}"
 
         // Kind Cluster - For Mac Docker Desktop image loading
         KIND_CLUSTER_NAME = "${env.KIND_CLUSTER_NAME ?: 'cicd-demo-cluster'}"
