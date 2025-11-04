@@ -254,6 +254,30 @@ pipeline {
             }
         }
 
+        stage('Prepare Namespace') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Ensuring namespace ${NAMESPACE} exists ==="
+
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+                        # Create Harbor registry secret in the namespace
+                        kubectl create secret docker-registry harbor-cred \
+                            --docker-server=host.docker.internal:8082 \
+                            --docker-username=admin \
+                            --docker-password=Harbor12345 \
+                            --namespace=${NAMESPACE} \
+                            --dry-run=client -o yaml | kubectl apply -f -
+
+                        echo "✅ Namespace ${NAMESPACE} is ready"
+                        kubectl get namespace ${NAMESPACE}
+                    """
+                }
+            }
+        }
+
         stage('Deploy with ArgoCD') {
             steps {
                 script {
