@@ -286,7 +286,9 @@ pipeline {
                     """
                 }
             }
-        }        stage('Deploy with ArgoCD') {
+        }
+
+        stage('Deploy with ArgoCD') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
