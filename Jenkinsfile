@@ -14,6 +14,9 @@ pipeline {
         // Kubernetes - Load from environment
         // KUBECONFIG = credentials('kubeconfig')  // Commented out - configure in Jenkins Credentials if needed
         NAMESPACE = "${env.KUBE_NAMESPACE ?: 'default'}"
+
+        // Kind Cluster - For Mac Docker Desktop image loading
+        KIND_CLUSTER_NAME = "${env.KIND_CLUSTER_NAME ?: 'cicd-demo-cluster'}"
     }
 
     stages {
@@ -188,6 +191,52 @@ pipeline {
                         echo \$PASS | docker login ${HARBOR_REGISTRY} -u \$USER --password-stdin
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Load Image into Kind') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Loading images into Kind cluster for Mac Docker Desktop ==="
+
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-cicd-demo-cluster}"
+
+                        # Check if Kind cluster exists
+                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping image load."
+                            echo "Available clusters:"
+                            kind get clusters || echo "No Kind clusters found"
+                            exit 0
+                        fi
+
+                        echo "Found Kind cluster: \${KIND_CLUSTER}"
+
+                        # Tag images with host.docker.internal for Kind
+                        echo "Tagging images for Kind..."
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
+
+                        # Load versioned image into Kind
+                        echo "Loading image with tag ${IMAGE_TAG} into Kind..."
+                        kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
+                             --name "\${KIND_CLUSTER}"
+
+                        # Load latest tag into Kind
+                        echo "Loading latest tag into Kind..."
+                        kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
+                             --name "\${KIND_CLUSTER}"
+
+                        echo "✅ Images successfully loaded into Kind cluster"
+
+                        # Verify images are loaded
+                        echo "Verifying images in Kind nodes..."
+                        docker exec \${KIND_CLUSTER}-control-plane crictl images | grep ${HARBOR_PROJECT}/${IMAGE_NAME} || echo "Image verification: check manually"
                     """
                 }
             }

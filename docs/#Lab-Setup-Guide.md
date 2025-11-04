@@ -537,6 +537,40 @@ kubectl wait --namespace ingress-nginx \
   --timeout=90s
 ```
 
+### 3.3 Configure Kind to Work with Harbor (Mac Docker Desktop)
+
+**Important**: Kind clusters on Mac cannot directly pull images from Harbor due to network isolation. We use image pre-loading instead.
+
+#### Solution: Load Images into Kind
+
+After pushing images to Harbor, load them into Kind nodes:
+
+```bash
+# Use the provided script (recommended)
+./scripts/load-harbor-image-to-kind.sh localhost:8082/cicd-demo/app:latest
+
+# Or manually:
+# 1. Pull from Harbor
+docker pull localhost:8082/cicd-demo/app:latest
+
+# 2. Tag for Kind
+docker tag localhost:8082/cicd-demo/app:latest \
+           host.docker.internal:8082/cicd-demo/app:latest
+
+# 3. Load into Kind
+kind load docker-image host.docker.internal:8082/cicd-demo/app:latest \
+     --name cicd-demo-cluster
+```
+
+**Why this approach?**
+- ✅ Simple and reliable
+- ✅ Recommended by Kind documentation
+- ✅ No complex network configuration needed
+- ✅ No authentication issues
+- ✅ Works perfectly on Mac Docker Desktop
+
+**Note**: This step must be automated in your Jenkins pipeline. See `docs/Harbor-Kind-Integration.md` for complete details and Jenkins integration.
+
 ## Phase 4: ArgoCD Installation
 
 ### 4.1 Install ArgoCD on Kind Cluster
@@ -689,14 +723,22 @@ argocd app get cicd-demo
 ```bash
 cd helm-charts
 helm create cicd-demo
+```
 
+### 5.2 Configure Values for Kind Deployment
+
+**Important**: For Kind on Mac Docker Desktop, configure Helm to use pre-loaded images:
+
+```bash
 # Edit values.yaml
 cat > cicd-demo/values.yaml << 'EOF'
 replicaCount: 2
 
 image:
-  repository: localhost:8082/cicd-demo/app
-  pullPolicy: Always
+  # Using host.docker.internal naming for Kind
+  # Images must be loaded into Kind with: kind load docker-image <image>
+  repository: host.docker.internal:8082/cicd-demo/app
+  pullPolicy: Never  # Use pre-loaded images in Kind nodes
   tag: "latest"
 
 service:

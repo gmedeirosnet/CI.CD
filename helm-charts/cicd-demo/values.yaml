@@ -2,8 +2,10 @@ replicaCount: 2
 
 image:
   # Override with --set image.repository=${HARBOR_REGISTRY}/${HARBOR_PROJECT}/app
-  repository: localhost:8082/cicd-demo/app
-  pullPolicy: IfNotPresent
+  # Using host.docker.internal for Mac Docker Desktop Kind cluster
+  # Images must be loaded into Kind with: kind load docker-image <image>
+  repository: host.docker.internal:8082/cicd-demo/app
+  pullPolicy: Never  # Use pre-loaded images in Kind nodes
   # Override with --set image.tag=${BUILD_NUMBER}
   tag: "latest"
 
