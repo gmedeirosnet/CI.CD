@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-CLUSTER_NAME="${1:-cicd-demo-cluster}"
+CLUSTER_NAME="${1:-app-demo}"
 HARBOR_HOST="host.docker.internal:8082"
 
 echo "🔧 Configuring Kind cluster '${CLUSTER_NAME}' to access Harbor at ${HARBOR_HOST}"

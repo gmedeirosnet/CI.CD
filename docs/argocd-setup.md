@@ -95,7 +95,7 @@ argocd repo list
 kubectl config current-context
 
 # Add the cluster to ArgoCD
-argocd cluster add kind-cicd-demo-cluster
+argocd cluster add kind-app-demo
 
 # Or if using a different cluster name
 kubectl config get-contexts
@@ -117,7 +117,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sample-app
-  namespace: default
+  namespace: app-demo
 spec:
   replicas: 2
   selector:
@@ -138,7 +138,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: sample-app
-  namespace: default
+  namespace: app-demo
 spec:
   type: NodePort
   ports:
@@ -165,7 +165,7 @@ argocd app create sample-app \
   --repo https://github.com/gmedeirosnet/CI.CD \
   --path k8s/sample-app \
   --dest-server https://kubernetes.default.svc \
-  --dest-namespace default \
+  --dest-namespace app-demo \
   --sync-policy automated \
   --auto-prune \
   --self-heal
@@ -187,7 +187,7 @@ argocd app create sample-app \
 
    Destination:
    - Cluster URL: https://kubernetes.default.svc
-   - Namespace: default
+   - Namespace: app-demo
 
 3. Click "CREATE"
 ```
@@ -208,7 +208,7 @@ spec:
     path: k8s/sample-app
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: app-demo
   syncPolicy:
     automated:
       prune: true

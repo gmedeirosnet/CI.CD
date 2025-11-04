@@ -48,7 +48,7 @@ docker tag localhost:8082/cicd-demo/app:latest \
 
 # Load into Kind
 kind load docker-image host.docker.internal:8082/cicd-demo/app:latest \
-     --name cicd-demo-cluster
+     --name app-demo
 ```
 
 ### 3. Helm Configuration
@@ -80,14 +80,14 @@ stage('Load Image into Kind') {
 
                 # Load into Kind cluster
                 kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
-                     --name cicd-demo-cluster
+                     --name app-demo
 
                 # Also load the 'latest' tag
                 docker pull ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                 docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
                            host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                 kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
-                     --name cicd-demo-cluster
+                     --name app-demo
             """
         }
     }
@@ -157,7 +157,7 @@ We tried these approaches, but they have issues on Mac Docker Desktop:
 ### Images not pulling?
 ```bash
 # Check if image exists in Kind nodes
-docker exec cicd-demo-cluster-worker crictl images | grep cicd-demo
+docker exec app-demo-worker crictl images | grep cicd-demo
 
 # Reload image if missing
 ./scripts/load-harbor-image-to-kind.sh localhost:8082/cicd-demo/app:latest

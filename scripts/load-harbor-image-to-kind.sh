@@ -3,13 +3,13 @@
 # Loads an image from Harbor into Kind cluster for Mac Docker Desktop
 #
 # Usage: ./load-harbor-image-to-kind.sh [IMAGE:TAG] [CLUSTER_NAME]
-# Example: ./load-harbor-image-to-kind.sh localhost:8082/cicd-demo/app:latest cicd-demo-cluster
+# Example: ./load-harbor-image-to-kind.sh localhost:8082/cicd-demo/app:latest app-demo
 
 set -euo pipefail
 
 # Default values
 HARBOR_IMAGE="${1:-localhost:8082/cicd-demo/app:latest}"
-CLUSTER_NAME="${2:-cicd-demo-cluster}"
+CLUSTER_NAME="${2:-app-demo}"
 KIND_IMAGE=$(echo "$HARBOR_IMAGE" | sed 's/localhost:8082/host.docker.internal:8082/g')
 
 echo "🐳 Loading Harbor image into Kind cluster"

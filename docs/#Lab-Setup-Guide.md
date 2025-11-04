@@ -502,7 +502,7 @@ kubectl version --client
 cat > kind-config.yaml << 'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: cicd-demo-cluster
+name: app-demo
 nodes:
 - role: control-plane
   extraPortMappings:
@@ -523,7 +523,7 @@ EOF
 kind create cluster --config kind-config.yaml
 
 # Verify cluster
-kubectl cluster-info --context kind-cicd-demo-cluster
+kubectl cluster-info --context kind-app-demo
 kubectl get nodes
 kubectl get pods --all-namespaces
 
@@ -559,7 +559,7 @@ docker tag localhost:8082/cicd-demo/app:latest \
 
 # 3. Load into Kind
 kind load docker-image host.docker.internal:8082/cicd-demo/app:latest \
-     --name cicd-demo-cluster
+     --name app-demo
 ```
 
 **Why this approach?**
@@ -628,7 +628,7 @@ argocd login localhost:8090
 
    **Destination:**
    - **Cluster URL**: `https://kubernetes.default.svc` (in-cluster)
-   - **Namespace**: `default`
+   - **Namespace**: `app-demo`
 
    **Helm (if using Helm chart):**
    - Leave values as default or customize as needed
@@ -649,7 +649,7 @@ argocd app create cicd-demo \
   --repo https://github.com/yourusername/cicd-demo.git \
   --path helm-charts/cicd-demo \
   --dest-server https://kubernetes.default.svc \
-  --dest-namespace default \
+  --dest-namespace app-demo \
   --sync-policy automated \
   --auto-prune \
   --self-heal
@@ -684,7 +684,7 @@ spec:
         - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: app-demo
   syncPolicy:
     automated:
       prune: true
@@ -841,7 +841,7 @@ pipeline {
 
         // Kubernetes
         KUBECONFIG = credentials('kubeconfig')
-        NAMESPACE = 'default'
+        NAMESPACE = 'app-demo'
     }
 
     tools {
@@ -1057,7 +1057,7 @@ curl http://<EXTERNAL-IP>:80
 argocd app delete cicd-demo
 
 # Delete Kind cluster
-kind delete cluster --name cicd-demo-cluster
+kind delete cluster --name app-demo
 
 # Stop Docker containers
 docker-compose -f sonar-compose.yml down -v
@@ -1165,13 +1165,13 @@ For comprehensive troubleshooting and setup guides, see:
 ### Kind-Specific Issues
 ```bash
 # View Kind cluster logs
-kind export logs --name cicd-demo-cluster
+kind export logs --name app-demo
 
 # Reload Docker images into Kind
-kind load docker-image <image:tag> --name cicd-demo-cluster
+kind load docker-image <image:tag> --name app-demo
 
 # Access Kind node directly
-docker exec -it cicd-demo-cluster-control-plane bash
+docker exec -it app-demo-control-plane bash
 ```
 
 ## Next Steps

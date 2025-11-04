@@ -37,7 +37,7 @@ stage('Load Image into Kind') {
                 docker tag localhost:8082/cicd-demo/app:latest \
                            host.docker.internal:8082/cicd-demo/app:latest
                 kind load docker-image host.docker.internal:8082/cicd-demo/app:latest \
-                     --name cicd-demo-cluster
+                     --name app-demo
             """
         }
     }
@@ -56,7 +56,7 @@ See `docs/Harbor-Kind-Integration.md` for complete explanation and alternatives.
 ## Verification
 ```bash
 # Check images in Kind nodes
-docker exec cicd-demo-cluster-worker crictl images | grep cicd-demo
+docker exec app-demo-worker crictl images | grep cicd-demo
 
 # Expected output:
 # host.docker.internal:8082/cicd-demo/app    latest    55ff886c472fb    123MB

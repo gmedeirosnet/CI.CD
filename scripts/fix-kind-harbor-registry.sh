@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-CLUSTER_NAME="${1:-cicd-demo-cluster}"
+CLUSTER_NAME="${1:-app-demo}"
 REGISTRY="host.docker.internal:8082"
 
 echo "🔧 Fixing containerd config for Harbor registry access..."

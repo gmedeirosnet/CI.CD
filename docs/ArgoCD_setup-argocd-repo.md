@@ -59,7 +59,7 @@ argocd app create sample-app \
   --repo https://github.com/YOUR_USERNAME/YOUR_REPO \
   --path k8s/sample-app \
   --dest-server https://kubernetes.default.svc \
-  --dest-namespace default \
+  --dest-namespace app-demo \
   --sync-policy automated
 ```
 
@@ -72,7 +72,7 @@ argocd app create sample-app \
    - **Repo URL:** Your GitHub repository
    - **Path:** k8s/sample-app
    - **Cluster:** https://kubernetes.default.svc
-   - **Namespace:** default
+   - **Namespace:** app-demo
 4. Enable "Auto-Sync"
 5. Click "CREATE"
 

@@ -16,7 +16,7 @@ pipeline {
         NAMESPACE = "${env.KUBE_NAMESPACE ?: 'app-demo'}"
 
         // Kind Cluster - For Mac Docker Desktop image loading
-        KIND_CLUSTER_NAME = "${env.KIND_CLUSTER_NAME ?: 'cicd-demo-cluster'}"
+        KIND_CLUSTER_NAME = "${env.KIND_CLUSTER_NAME ?: 'app-demo'}"
     }
 
     stages {
@@ -203,7 +203,7 @@ pipeline {
                         echo "=== Loading images into Kind cluster for Mac Docker Desktop ==="
 
                         # Kind cluster name
-                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-cicd-demo-cluster}"
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
 
                         # Check if Kind cluster exists
                         if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
