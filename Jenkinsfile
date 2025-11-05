@@ -324,7 +324,7 @@ pipeline {
 
                             # Sync and wait for deployment
                             argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
-                            
+
                             # Wait for deployment only (skip service health check for Kind LoadBalancer)
                             # In Kind, LoadBalancer services never get external IP, causing timeout
                             argocd app wait cicd-demo --timeout 120 --health=false --grpc-web --insecure || \
