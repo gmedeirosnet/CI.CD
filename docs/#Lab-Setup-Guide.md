@@ -1,7 +1,7 @@
 # Complete CI/CD Pipeline Lab Setup
 
 ## Overview
-This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using all the focus tools: ArgoCD, Kind (K8s in Docker), Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
+This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using the following tools: ArgoCD, Kind (K8s in Docker), Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
 
 ## Prerequisites
 - macOS (M1 recommended), Linux, or Windows with WSL2
@@ -19,8 +19,6 @@ Developer → GitHub → Jenkins → Maven Build → SonarQube Analysis
                      Docker Build → Harbor Registry
                           ↓
                      Helm Package → ArgoCD → Kind K8s Cluster
-                          ↓
-                     Ansible (Configuration Management)
 ```
 
 ## Phase 1: Foundation Setup
@@ -47,14 +45,11 @@ docker-compose --version
 git clone https://github.com/yourusername/cicd-demo.git
 cd cicd-demo
 
-# Create basic structure
+        # Create basic structure
 mkdir -p src/main/java/com/example
 mkdir -p src/test/java/com/example
 mkdir -p k8s
-mkdir -p helm-charts
-mkdir -p ansible
-
-# Initialize Git
+mkdir -p helm-charts# Initialize Git
 git add .
 git commit -m "Initial project structure"
 git push origin main
@@ -764,69 +759,17 @@ EOF
 helm package cicd-demo
 ```
 
-## Phase 6: Ansible Configuration
+## Phase 6: Complete Jenkins Pipeline
 
-### 6.1 Install Ansible
-```bash
-brew install ansible
-
-# Verify
-ansible --version
-```
-
-### 6.2 Create Ansible Playbook
-```bash
-cd ansible
-
-cat > inventory.ini << 'EOF'
-[local]
-localhost ansible_connection=local
-
-[kind-nodes]
-kind-worker-1 ansible_host=<NODE_IP>
-EOF
-
-cat > deploy.yml << 'EOF'
----
-- name: Configure Kind K8s environment
-  hosts: local
-  tasks:
-    - name: Ensure kubectl is installed
-      command: kubectl version --client
-      register: kubectl_version
-
-    - name: Display kubectl version
-      debug:
-        var: kubectl_version.stdout
-
-    - name: Apply Kubernetes manifests
-      command: kubectl apply -f ../k8s/
-
-- name: Verify deployment
-  hosts: local
-  tasks:
-    - name: Check pod status
-      command: kubectl get pods
-      register: pod_status
-
-    - name: Display pod status
-      debug:
-        var: pod_status.stdout
-EOF
-```
-
-## Phase 7: Complete Jenkins Pipeline
-
-### 7.1 Configure Jenkins Credentials
+### 6.1 Configure Jenkins Credentials
 1. Manage Jenkins > Credentials
 2. Add credentials:
    - GitHub: username + token
    - Harbor: username + password
    - SonarQube: secret text (token)
-   - AWS: AWS access key + secret
    - Kubeconfig: secret file
 
-### 7.2 Create Jenkinsfile
+### 6.2 Create Jenkinsfile
 ```groovy
 pipeline {
     agent any
@@ -951,15 +894,6 @@ pipeline {
             }
         }
 
-        stage('Ansible Post-Deploy') {
-            steps {
-                sh """
-                    cd ansible
-                    ansible-playbook -i inventory.ini deploy.yml
-                """
-            }
-        }
-
         stage('Verify Deployment') {
             steps {
                 sh """
@@ -985,9 +919,9 @@ pipeline {
 }
 ```
 
-## Phase 8: Testing the Pipeline
+## Phase 7: Testing the Pipeline
 
-### 8.1 Create Jenkins Job
+### 7.1 Create Jenkins Job
 1. New Item > Pipeline
 2. Name: cicd-demo
 3. Pipeline > Definition: Pipeline script from SCM
@@ -996,7 +930,7 @@ pipeline {
 6. Script Path: Jenkinsfile
 7. Save
 
-### 8.2 Trigger Build
+### 7.2 Trigger Build
 ```bash
 # Make a code change
 echo "// Test change" >> src/main/java/com/example/Application.java
@@ -1007,7 +941,7 @@ git push origin main
 # Or manually trigger in Jenkins UI
 ```
 
-### 8.3 Monitor Deployment
+### 7.3 Monitor Deployment
 ```bash
 # Watch Jenkins build
 # Check SonarQube analysis at http://localhost:9000
@@ -1020,9 +954,9 @@ kubectl get pods -w
 kubectl get svc
 ```
 
-## Phase 9: Monitoring and Validation
+## Phase 8: Monitoring and Validation
 
-### 9.1 Verify Each Component
+### 8.1 Verify Each Component
 ```bash
 # Jenkins
 curl http://localhost:8080
@@ -1042,7 +976,7 @@ kubectl get svc
 kubectl logs <pod-name>
 ```
 
-### 9.2 Access Application
+### 8.2 Access Application
 ```bash
 # Get LoadBalancer URL
 kubectl get svc -o wide
@@ -1051,9 +985,9 @@ kubectl get svc -o wide
 curl http://<EXTERNAL-IP>:80
 ```
 
-## Phase 10: Cleanup
+## Phase 9: Cleanup
 
-### 10.1 Remove Resources
+### 9.1 Remove Resources
 ```bash
 # Delete ArgoCD application
 argocd app delete cicd-demo

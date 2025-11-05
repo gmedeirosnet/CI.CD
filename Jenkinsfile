@@ -338,15 +338,6 @@ pipeline {
             }
         }
 
-        stage('Ansible Post-Deploy') {
-            steps {
-                sh """
-                    cd ansible
-                    ansible-playbook -i inventory.ini deploy.yml
-                """
-            }
-        }
-
         stage('Verify Deployment') {
             steps {
                 script {
