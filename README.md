@@ -23,8 +23,7 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
 
-### Configuration & Analysis
-- **Ansible** - Agentless automation and configuration management
+### Code Quality Analysis
 - **SonarQube** - Code quality and security analysis
 
 ## Repository Structure
@@ -41,7 +40,6 @@ CI.CD/
 ├── docs/                        # Comprehensive documentation
 │   ├── ArgoCD.md               # ArgoCD guide
 │   ├── Kind-K8s.md             # Kind (K8s in Docker) guide
-│   ├── Ansible.md              # Ansible guide
 │   ├── Docker.md               # Docker guide
 │   ├── Harbor.md               # Harbor guide
 │   ├── Helm-Charts.md          # Helm guide
@@ -187,7 +185,6 @@ If you prefer step-by-step setup:
 - Helm
 
 ### Phase 4: Configuration and Deployment (2-3 weeks)
-- Ansible automation
 - ArgoCD GitOps
 - Harbor security
 
@@ -204,8 +201,6 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                     Docker Build → Harbor
                          ↓
                     Helm Package → ArgoCD → Kind K8s
-                         ↓
-                    Ansible Configuration
 ```
 
 ## Key Features## Key Resources
@@ -226,7 +221,6 @@ Developer → GitHub → Jenkins → Maven → SonarQube
 - [ArgoCD](docs/ArgoCD.md) - GitOps deployment
 - [SonarQube](docs/SonarQube.md) - Code quality
 - [Maven](docs/Maven.md) - Build automation
-- [Ansible](docs/Ansible.md) - Configuration management
 
 ### Learning Materials
 - [Study Plan](docs/StudyPlan.md) - DevOps learning curriculum

@@ -18,12 +18,11 @@ The Study reference is in https://notebooklm.google.com/notebook/04068cbd-0312-4
 - `src/` - Demo Spring Boot application
 - `helm-charts/` - Kubernetes Helm charts
 - `k8s/` - Raw Kubernetes manifests
-- `ansible/` - Ansible playbooks and inventory
 - `harbor/` - Harbor registry configuration
 - `argocd-apps/` - ArgoCD application definitions
 
 # TOOLS
-ArgoCD, Kind (K8s in Docker), Ansible, Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube
+ArgoCD, Kind (K8s in Docker), Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube
 
 # INSTRUCTIONS
 Create short documentation files only in the "docs" directory.
