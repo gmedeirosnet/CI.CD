@@ -541,6 +541,8 @@ kubectl wait --namespace ingress-nginx \
 
 **Important**: Kind clusters on Mac cannot directly pull images from Harbor due to network isolation. We use image pre-loading instead.
 
+**Note**: This is already implemented in Jenkins pipeline.
+
 #### Solution: Load Images into Kind
 
 After pushing images to Harbor, load them into Kind nodes:
