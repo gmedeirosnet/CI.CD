@@ -205,11 +205,11 @@ pipeline {
                         # Kind cluster name
                         KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
 
-                        # Check if Kind cluster exists
-                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                        # Check if Kind cluster exists by checking for control-plane container
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
                             echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping image load."
-                            echo "Available clusters:"
-                            kind get clusters || echo "No Kind clusters found"
+                            echo "Available Kind containers:"
+                            docker ps --filter "name=kind" --format '{{.Names}}' || echo "No Kind containers found"
                             exit 0
                         fi
 
@@ -222,15 +222,19 @@ pipeline {
                         docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
                                    host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
 
-                        # Load versioned image into Kind
-                        echo "Loading image with tag ${IMAGE_TAG} into Kind..."
-                        kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} \
-                             --name "\${KIND_CLUSTER}"
+                        # Load images into Kind nodes using docker save/load
+                        echo "Loading image with tag ${IMAGE_TAG} into Kind nodes..."
 
-                        # Load latest tag into Kind
-                        echo "Loading latest tag into Kind..."
-                        kind load docker-image host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest \
-                             --name "\${KIND_CLUSTER}"
+                        # Get all Kind cluster nodes
+                        KIND_NODES=\$(docker ps --filter "name=\${KIND_CLUSTER}" --format '{{.Names}}')
+
+                        for NODE in \$KIND_NODES; do
+                            echo "Loading images into node: \$NODE"
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/${IMAGE_NAME}:latest | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                        done
 
                         echo "✅ Images successfully loaded into Kind cluster"
 
@@ -263,8 +267,8 @@ pipeline {
                         # Kind cluster name
                         KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
 
-                        # Check if Kind cluster exists
-                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                        # Check if Kind cluster exists by checking for control-plane container
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
                             echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping namespace preparation."
                             exit 0
                         fi
@@ -286,9 +290,7 @@ pipeline {
                     """
                 }
             }
-        }
-
-        stage('Deploy with ArgoCD') {
+        }        stage('Deploy with ArgoCD') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
