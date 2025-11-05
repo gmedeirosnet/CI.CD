@@ -4,7 +4,7 @@ image:
   # Override with --set image.repository=${HARBOR_REGISTRY}/${HARBOR_PROJECT}/app
   # Using host.docker.internal for Mac Docker Desktop Kind cluster
   # Images must be loaded into Kind with: kind load docker-image <image>
-  repository: localhost:8082/cicd-demo/app
+  repository: host.docker.internal:8082/cicd-demo/app
   pullPolicy: Never  # Use pre-loaded images in Kind nodes
   # Override with --set image.tag=${BUILD_NUMBER}
   tag: "latest"
