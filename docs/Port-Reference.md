@@ -12,6 +12,9 @@ This document provides a comprehensive reference for all network ports used in t
 | **Harbor (HTTP)** | 80 | 8082 | HTTP | http://localhost:8082 | Container registry web UI |
 | **Harbor (HTTPS)** | 443 | 8443 | HTTPS | https://localhost:8443 | Secure container registry |
 | **SonarQube** | 9000 | 9000 | HTTP | http://localhost:9000 | Code quality analysis |
+| **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
+| **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
+| **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
 | **Application** | 8080 | 8080 | HTTP | http://localhost:8080 | Demo Spring Boot app |
 | **ArgoCD UI** | 8080 | 8080 | HTTP | http://localhost:8080 | GitOps deployment UI |
 | **ArgoCD API** | 8080 | 8080 | HTTPS | https://localhost:8080 | GitOps deployment API |
@@ -89,6 +92,57 @@ Environment Variables:
 Database:
   Internal Port: 5432 (PostgreSQL)
   Not exposed externally
+```
+
+---
+
+### Grafana & Loki
+
+```yaml
+Grafana:
+  External: 3000
+  Internal: 3000
+  Protocol: HTTP
+  URL: http://localhost:3000
+  Deployment: Docker Desktop
+
+  Environment Variables:
+    GF_SECURITY_ADMIN_USER: admin
+    GF_SECURITY_ADMIN_PASSWORD: admin
+
+  Access:
+    Username: admin
+    Password: admin
+
+Loki:
+  Internal: 3100 (ClusterIP in K8s)
+  NodePort: 31000 (for external access)
+  Protocol: HTTP
+  Namespace: logging (Kind K8s)
+
+  API Endpoints:
+    Ready: http://localhost:31000/ready
+    Metrics: http://localhost:31000/metrics
+    Labels: http://localhost:31000/loki/api/v1/labels
+    Query: http://localhost:31000/loki/api/v1/query
+
+Promtail:
+  Internal: 9080 (metrics)
+  Deployment: DaemonSet (Kind K8s)
+  Namespace: logging
+
+Connection:
+  Grafana -> Loki: http://host.docker.internal:31000
+  Or via Kind network: http://app-demo-control-plane:3100
+```
+
+**Port Forward Commands**:
+```bash
+# Loki (from K8s to host)
+kubectl port-forward -n logging svc/loki 3100:3100
+
+# Grafana (if in K8s)
+kubectl port-forward -n grafana svc/grafana 3000:3000
 ```
 
 ---
@@ -181,7 +235,8 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 | 8080 | Jenkins, Application, ArgoCD, Tomcat | Use different external ports |
 | 9000 | SonarQube, Other applications | Change SonarQube port |
 | 8082 | Harbor, Other services | Modify Harbor configuration |
-| 3000 | Node.js apps, Grafana | Use alternative port |
+| 3000 | Node.js apps, Grafana, Dev servers | Use alternative port (3001) |
+| 3100 | Loki, Other log collectors | Change NodePort mapping |
 | 5432 | PostgreSQL databases | Use Docker networks |
 
 ### Checking Port Usage
@@ -309,6 +364,8 @@ Pod to Service:
 | Jenkins | http://localhost:8080/login | 200 OK |
 | Harbor | http://localhost:8082/api/v2.0/health | 200 OK |
 | SonarQube | http://localhost:9000/api/system/health | 200 OK |
+| Grafana | http://localhost:3000/api/health | 200 OK |
+| Loki | http://localhost:31000/ready | ready |
 | Application | http://localhost:8080/health | 200 OK |
 | ArgoCD | http://localhost:8080/healthz | 200 OK |
 | Kind API | kubectl get --raw='/healthz' | ok |
@@ -363,6 +420,12 @@ export HARBOR_REGISTRY=localhost:${HARBOR_HTTP_PORT}
 # SonarQube
 export SONAR_PORT=9000
 export SONAR_HOST=http://localhost:${SONAR_PORT}
+
+# Grafana & Loki
+export GRAFANA_PORT=3000
+export GRAFANA_URL=http://localhost:${GRAFANA_PORT}
+export LOKI_PORT=31000
+export LOKI_URL=http://localhost:${LOKI_PORT}
 
 # Application
 export APP_PORT=8080
@@ -462,6 +525,7 @@ kubectl logs <pod-name>
 
 ## See Also
 
+- [Grafana & Loki Setup](Grafana-Loki.md) - Complete logging setup guide
 - [Architecture Diagram](Architecture-Diagram.md) - Visual representation of service communication
 - [Lab Setup Guide](#Lab-Setup-Guide.md) - Complete setup instructions
 - [Troubleshooting Guide](Troubleshooting.md) - Common issues and solutions

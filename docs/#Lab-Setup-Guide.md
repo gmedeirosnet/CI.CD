@@ -1,7 +1,7 @@
 # Complete CI/CD Pipeline Lab Setup
 
 ## Overview
-This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using the following tools: ArgoCD, Kind (K8s in Docker), Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, and SonarQube.
+This guide provides step-by-step instructions to set up a complete DevOps CI/CD laboratory environment using the following tools: ArgoCD, Kind (K8s in Docker), Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube, Grafana, and Loki.
 
 ## Prerequisites
 - macOS (M1 recommended), Linux, or Windows with WSL2
@@ -19,6 +19,14 @@ Developer → GitHub → Jenkins → Maven Build → SonarQube Analysis
                      Docker Build → Harbor Registry
                           ↓
                      Helm Package → ArgoCD → Kind K8s Cluster
+                                                    ↓
+                                        ┌───────────┴────────────┐
+                                        ↓                        ↓
+                                    Application              Logging
+                                                          (Loki + Promtail)
+                                                                ↓
+                                                            Grafana
+                                                         (on Docker Desktop)
 ```
 
 ## Phase 1: Foundation Setup
@@ -714,15 +722,132 @@ argocd app get cicd-demo
 - `SELF HEAL` reverts manual kubectl changes back to Git state
 - For initial testing, you might want manual sync to control deployments
 
-## Phase 5: Helm Charts Creation
+## Phase 5: Grafana & Loki Logging Setup
 
-### 5.1 Create Helm Chart
+### 5.1 Install Loki (Log Aggregation)
+
+Loki collects and aggregates logs from all pods in the Kind cluster.
+
+```bash
+# Navigate to grafana directory
+cd grafana
+
+# Run Loki setup script
+chmod +x setup-loki.sh
+./setup-loki.sh
+```
+
+**What it installs:**
+- **Loki**: Log aggregation system (in `logging` namespace)
+- **Promtail**: DaemonSet that collects logs from all nodes
+- **10GB persistent storage** for logs
+- **RBAC permissions** for log collection
+
+**Verify installation:**
+```bash
+# Check pods are running
+kubectl get pods -n logging
+
+# Expected output:
+# NAME                    READY   STATUS    RESTARTS   AGE
+# loki-xxxxx             1/1     Running   0          2m
+# promtail-xxxxx         1/1     Running   0          2m
+# promtail-xxxxx         1/1     Running   0          2m
+
+# Check Loki is ready
+kubectl port-forward -n logging svc/loki 3100:3100 &
+curl http://localhost:3100/ready
+# Should return: ready
+
+# Stop port forward
+pkill -f "port-forward.*loki"
+```
+
+### 5.2 Install Grafana (Visualization)
+
+Grafana runs on Docker Desktop and connects to Loki in the Kind cluster.
+
+```bash
+# Run Grafana setup script
+chmod +x setup-grafana-docker.sh
+./setup-grafana-docker.sh
+```
+
+**What it does:**
+1. Checks if Loki is running
+2. Exposes Loki via NodePort (port 31000) or Kind network
+3. Starts Grafana container with Docker Compose
+4. Pre-configures Loki as default datasource
+5. Verifies connectivity
+
+**Access Grafana:**
+- URL: http://localhost:3000
+- Username: `admin`
+- Password: `admin`
+
+### 5.3 Verify Logging Stack
+
+```bash
+# Check Grafana container
+docker ps | grep grafana
+
+# Check Loki service
+kubectl get svc -n logging loki
+
+# Test log query
+# Open Grafana: http://localhost:3000
+# Go to Explore (compass icon)
+# Select "Loki" datasource
+# Enter query: {namespace="kube-system"}
+# You should see logs from Kubernetes system pods
+```
+
+**Common LogQL Queries:**
+```logql
+# All logs from default namespace
+{namespace="default"}
+
+# Logs from your application
+{namespace="app-demo", app="cicd-demo"}
+
+# Search for errors
+{namespace="default"} |= "error"
+
+# Filter by pod
+{namespace="app-demo", pod=~"cicd-demo-.*"}
+```
+
+**Important Notes:**
+- Grafana runs on Docker Desktop, not in Kubernetes
+- Loki and Promtail run inside the Kind cluster
+- Connection between Grafana and Loki uses NodePort (31000) or Kind network bridge
+- All pod logs are automatically collected by Promtail
+- Logs are retained based on Loki configuration (default: limited by storage)
+
+**Troubleshooting:**
+```bash
+# If Grafana can't connect to Loki
+kubectl get svc -n logging loki
+curl http://localhost:31000/ready
+
+# Check Promtail is collecting logs
+kubectl logs -n logging daemonset/promtail --tail=50
+
+# Restart Grafana if needed
+cd grafana && docker-compose restart
+```
+
+**For detailed documentation, see:** [Grafana-Loki.md](Grafana-Loki.md)
+
+## Phase 6: Helm Charts Creation
+
+### 6.1 Create Helm Chart
 ```bash
 cd helm-charts
 helm create cicd-demo
 ```
 
-### 5.2 Configure Values for Kind Deployment
+### 6.2 Configure Values for Kind Deployment
 
 **Important**: For Kind on Mac Docker Desktop, configure Helm to use pre-loaded images:
 
@@ -759,9 +884,9 @@ EOF
 helm package cicd-demo
 ```
 
-## Phase 6: Complete Jenkins Pipeline
+## Phase 7: Complete Jenkins Pipeline
 
-### 6.1 Configure Jenkins Credentials
+### 7.1 Configure Jenkins Credentials
 1. Manage Jenkins > Credentials
 2. Add credentials:
    - GitHub: username + token
@@ -769,7 +894,7 @@ helm package cicd-demo
    - SonarQube: secret text (token)
    - Kubeconfig: secret file
 
-### 6.2 Create Jenkinsfile
+### 7.2 Create Jenkinsfile
 ```groovy
 pipeline {
     agent any
@@ -919,9 +1044,9 @@ pipeline {
 }
 ```
 
-## Phase 7: Testing the Pipeline
+## Phase 8: Testing the Pipeline
 
-### 7.1 Create Jenkins Job
+### 8.1 Create Jenkins Job
 1. New Item > Pipeline
 2. Name: cicd-demo
 3. Pipeline > Definition: Pipeline script from SCM
@@ -930,7 +1055,7 @@ pipeline {
 6. Script Path: Jenkinsfile
 7. Save
 
-### 7.2 Trigger Build
+### 8.2 Trigger Build
 ```bash
 # Make a code change
 echo "// Test change" >> src/main/java/com/example/Application.java
@@ -941,7 +1066,7 @@ git push origin main
 # Or manually trigger in Jenkins UI
 ```
 
-### 7.3 Monitor Deployment
+### 8.3 Monitor Deployment
 ```bash
 # Watch Jenkins build
 # Check SonarQube analysis at http://localhost:9000
@@ -954,9 +1079,9 @@ kubectl get pods -w
 kubectl get svc
 ```
 
-## Phase 8: Monitoring and Validation
+## Phase 9: Monitoring and Validation
 
-### 8.1 Verify Each Component
+### 9.1 Verify Each Component
 ```bash
 # Jenkins
 curl http://localhost:8080
@@ -967,6 +1092,12 @@ curl http://localhost:9000/api/system/status
 # Harbor
 curl http://localhost:8082/api/v2.0/health
 
+# Grafana
+curl http://localhost:3000/api/health
+
+# Loki
+curl http://localhost:31000/ready
+
 # ArgoCD
 kubectl get pods -n argocd
 
@@ -976,18 +1107,28 @@ kubectl get svc
 kubectl logs <pod-name>
 ```
 
-### 8.2 Access Application
+### 9.2 Access Application and Logs
 ```bash
 # Get LoadBalancer URL
 kubectl get svc -o wide
 
 # Test application
 curl http://<EXTERNAL-IP>:80
+
+# View application logs in Grafana
+# 1. Open Grafana: http://localhost:3000
+# 2. Go to Explore (compass icon)
+# 3. Select Loki datasource
+# 4. Query: {namespace="app-demo", app="cicd-demo"}
+# 5. View real-time logs
+
+# Or use kubectl
+kubectl logs -f deployment/cicd-demo -n app-demo
 ```
 
-## Phase 9: Cleanup
+## Phase 10: Cleanup
 
-### 9.1 Remove Resources
+### 10.1 Remove Resources
 ```bash
 # Delete ArgoCD application
 argocd app delete cicd-demo
@@ -995,10 +1136,15 @@ argocd app delete cicd-demo
 # Delete Kind cluster
 kind delete cluster --name app-demo
 
+# Stop Grafana
+cd grafana
+docker-compose down
+# Or use cleanup script
+./cleanup-grafana-docker.sh
+
 # Stop Docker containers
 docker-compose -f sonar-compose.yml down -v
 docker stop jenkins harbor
-
 
 # Remove Docker volumes
 docker volume prune -f
@@ -1093,10 +1239,61 @@ docker exec -u root jenkins chmod 666 /var/run/docker.sock
 ### Detailed Documentation
 
 For comprehensive troubleshooting and setup guides, see:
+- **Grafana & Loki:** `docs/Grafana-Loki.md` - Complete logging setup and troubleshooting
 - **Jenkins Docker Integration:** `docs/Jenkins-Docker-Integration.md`
 - **Quick Fix Guide:** `docs/Jenkins-Docker-QuickFix.md`
 - **Resolution Report:** `docs/Jenkins-Docker-Resolution-Report.md`
 - **Harbor Integration:** `docs/Harbor-Jenkins-Integration.md`
+
+### Grafana & Loki Issues
+
+#### 1. Grafana can't connect to Loki
+**Error:** Data source error or "Bad Gateway"
+
+**Solution:**
+```bash
+# Verify Loki is running
+kubectl get pods -n logging
+
+# Check Loki service
+kubectl get svc -n logging loki
+
+# Test Loki from host
+curl http://localhost:31000/ready
+
+# Test from Grafana container
+docker exec grafana-desktop wget -qO- http://host.docker.internal:31000/ready
+
+# If using Kind network bridge
+docker exec grafana-desktop wget -qO- http://app-demo-control-plane:3100/ready
+```
+
+#### 2. No logs showing in Grafana
+**Solution:**
+```bash
+# Check Promtail is collecting logs
+kubectl get pods -n logging
+kubectl logs -n logging daemonset/promtail --tail=50
+
+# Verify pods have logs
+kubectl logs -n default --all-containers=true --tail=10
+
+# Test Loki API
+curl 'http://localhost:31000/loki/api/v1/labels'
+```
+
+#### 3. Grafana container won't start
+**Solution:**
+```bash
+# Check logs
+docker logs grafana-desktop
+
+# Check port conflicts
+lsof -i :3000
+
+# Restart Grafana
+cd grafana && docker-compose restart
+```
 
 ### Kind-Specific Issues
 ```bash
@@ -1111,17 +1308,26 @@ docker exec -it app-demo-control-plane bash
 ```
 
 ## Next Steps
-1. Add monitoring with Prometheus and Grafana on Kind
-2. Implement blue-green deployments in local cluster
-3. Add integration tests
-4. Configure backup strategies for local development
-5. Implement secrets management with sealed-secrets
-6. Add API gateway (Kong or Ambassador)
-7. Experiment with service mesh (Istio/Linkerd) on Kind
+1. ✅ **Logging with Grafana & Loki** - Already configured!
+   - View logs: http://localhost:3000
+   - Query with LogQL
+   - Create dashboards for log analysis
+2. Add metrics monitoring with Prometheus
+3. Create Grafana dashboards for application metrics
+4. Implement blue-green deployments in local cluster
+5. Add integration tests
+6. Configure backup strategies for local development
+7. Implement secrets management with sealed-secrets
+8. Add API gateway (Kong or Ambassador)
+9. Experiment with service mesh (Istio/Linkerd) on Kind
 
 ## References
 - Complete lab documentation in docs/
+- [Grafana & Loki Setup](Grafana-Loki.md) - Comprehensive logging guide
+- [Port Reference](Port-Reference.md) - All service ports and endpoints
 - Tool-specific guides for each component
 - Kind documentation: https://kind.sigs.k8s.io/
+- Grafana documentation: https://grafana.com/docs/
+- Loki documentation: https://grafana.com/docs/loki/
 - Troubleshooting guides
 
