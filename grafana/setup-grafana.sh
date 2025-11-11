@@ -79,11 +79,6 @@ data:
         editable: true
         jsonData:
           maxLines: 1000
-          derivedFields:
-            - datasourceUid: loki
-              matcherRegex: "traceID=(\\w+)"
-              name: TraceID
-              url: "\${__value.raw}"
 ---
 apiVersion: v1
 kind: ConfigMap
