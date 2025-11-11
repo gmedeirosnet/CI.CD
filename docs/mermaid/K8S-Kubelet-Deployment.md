@@ -1,4 +1,4 @@
-# K8S - Kubelet Dashboard
+# K8S - Kubelet Deployment Proccess
 ## Mermaid Chart Export Collection
 
 This file contains all Mermaid diagrams for the Kubelet Pod Deployment process, ready for export to Mermaid Chart.
