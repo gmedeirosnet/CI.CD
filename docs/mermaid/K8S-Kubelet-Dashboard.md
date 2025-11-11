@@ -19,7 +19,7 @@ graph TB
     subgraph "Worker Node"
         KL[Kubelet]
         CR[Container Runtime<br/>Docker/containerd/CRI-O]
-        
+
         subgraph "Pod Lifecycle"
             PS[Pod Spec]
             PC[Pod Creation]
@@ -34,7 +34,7 @@ graph TB
     SCHED -->|Assign Pod<br/>to Node| API
     KL -->|Report<br/>Status| API
     API -->|Store State| ETCD
-    
+
     KL -->|1. Receive| PS
     PS -->|2. Validate| PC
     PC -->|3. Request| PI
@@ -72,33 +72,33 @@ sequenceDiagram
     Scheduler->>Scheduler: Find suitable Node
     Scheduler->>API: Bind Pod to Node
     API->>ETCD: Update Pod binding
-    
+
     Kubelet->>API: Watch for Pods (polling)
     API->>Kubelet: Pod assigned to this Node
-    
+
     Kubelet->>Kubelet: Validate Pod Spec
     Kubelet->>CRI: Check image availability
-    
+
     alt Image not present
         CRI->>Registry: Pull image
         Registry->>CRI: Image layers
     end
-    
+
     Kubelet->>CRI: Create Pod sandbox
     CRI->>CRI: Setup network namespace
     CRI->>CRI: Setup IPC namespace
-    
+
     loop For each container
         Kubelet->>CRI: Create container
         CRI->>CRI: Mount volumes
         CRI->>CRI: Apply resource limits
         Kubelet->>CRI: Start container
     end
-    
+
     Kubelet->>Kubelet: Setup probes
     Kubelet->>API: Update Pod status: Running
     API->>ETCD: Store Pod status
-    
+
     loop Health monitoring
         Kubelet->>CRI: Execute liveness probe
         Kubelet->>CRI: Execute readiness probe
@@ -114,7 +114,7 @@ sequenceDiagram
 graph LR
     subgraph "Kubelet Architecture"
         KL[Kubelet Main Process]
-        
+
         subgraph "Managers"
             PM[Pod Manager]
             VM[Volume Manager]
@@ -122,13 +122,13 @@ graph LR
             SM[Status Manager]
             PM2[Probe Manager]
         end
-        
+
         subgraph "Interfaces"
             CRI[Container Runtime<br/>Interface CRI]
             CNI[Container Network<br/>Interface CNI]
             CSI[Container Storage<br/>Interface CSI]
         end
-        
+
         subgraph "Functions"
             SY[Pod Sync]
             HC[Health Checks]
@@ -142,11 +142,11 @@ graph LR
     KL --> IM
     KL --> SM
     KL --> PM2
-    
+
     PM --> CRI
     VM --> CSI
     PM --> CNI
-    
+
     PM --> SY
     PM2 --> HC
     SM --> RM
@@ -166,26 +166,26 @@ graph LR
 ```mermaid
 stateDiagram-v2
     [*] --> Pending: Pod created
-    
+
     Pending --> Running: All containers started
     Pending --> Failed: Cannot schedule/pull images
-    
+
     Running --> Succeeded: All containers completed successfully
     Running --> Failed: Container crashes/errors
     Running --> Unknown: Node communication lost
-    
+
     Failed --> [*]: Terminal state
     Succeeded --> [*]: Terminal state
-    
+
     Unknown --> Running: Node communication restored
     Unknown --> Failed: Node confirmed down
-    
+
     note right of Pending
         Kubelet validates spec
         Pulls container images
         Creates pod sandbox
     end note
-    
+
     note right of Running
         Kubelet monitors health
         Executes probes
@@ -200,33 +200,33 @@ stateDiagram-v2
 ```mermaid
 graph TD
     START([Pod Assigned to Node]) --> S1[1. Kubelet Detects New Pod]
-    
+
     S1 --> S2{Pod Spec Valid?}
     S2 -->|No| ERR1[Report Error]
     S2 -->|Yes| S3[2. Admit Pod]
-    
+
     S3 --> S4[3. Create Pod Directory]
     S4 --> S5[4. Fetch Image Pull Secrets]
-    
+
     S5 --> S6{Image Available?}
     S6 -->|No| S7[5. Pull Image from Registry]
     S7 --> S8{Pull Success?}
     S8 -->|No| ERR2[Report ImagePullBackOff]
     S8 -->|Yes| S9
     S6 -->|Yes| S9[6. Create Pod Sandbox]
-    
+
     S9 --> S10[7. Setup Network CNI]
     S10 --> S11[8. Mount Volumes]
-    
+
     S11 --> S12[9. Start Init Containers]
     S12 --> S13{Init Success?}
     S13 -->|No| ERR3[Report Init Error]
     S13 -->|Yes| S14[10. Start App Containers]
-    
+
     S14 --> S15[11. Setup Health Probes]
     S15 --> S16[12. Update Status: Running]
     S16 --> S17([Monitor & Report])
-    
+
     ERR1 --> END([Failed State])
     ERR2 --> END
     ERR3 --> END
@@ -252,7 +252,7 @@ graph LR
         W7 --> W6
         W6 --> W1
     end
-    
+
     subgraph "Pod Sync Actions"
         W5 --> A1{Action Type?}
         A1 -->|Create| A2[Create New Pod]
@@ -273,21 +273,21 @@ graph LR
 graph TB
     subgraph "Kubelet to CRI Communication"
         KL[Kubelet]
-        
+
         subgraph "CRI Runtime Service"
             RS1[RunPodSandbox]
             RS2[StopPodSandbox]
             RS3[RemovePodSandbox]
             RS4[PodSandboxStatus]
         end
-        
+
         subgraph "CRI Image Service"
             IS1[PullImage]
             IS2[ListImages]
             IS3[RemoveImage]
             IS4[ImageStatus]
         end
-        
+
         subgraph "CRI Container Service"
             CS1[CreateContainer]
             CS2[StartContainer]
@@ -297,73 +297,18 @@ graph TB
             CS6[ExecSync]
         end
     end
-    
+
     KL --> RS1
     KL --> IS1
     KL --> CS1
-    
+
     RS1 -.-> CS1
     IS1 -.-> RS1
     CS1 -.-> CS2
-    
+
     style KL fill:#fff3e0
     style RS1 fill:#e3f2fd
     style IS1 fill:#f3e5f5
     style CS1 fill:#e8f5e9
 ```
 
----
-
-## Export Instructions
-
-### Method 1: Mermaid Live Editor (Recommended)
-1. Go to https://mermaid.live
-2. Copy each diagram code block (without the ``` markers)
-3. Paste into the editor
-4. Click **"Export"** → Choose format:
-   - PNG (for presentations)
-   - SVG (for scalable graphics)
-   - PDF (for documentation)
-
-### Method 2: Mermaid Chart (https://www.mermaidchart.com)
-1. Sign up/Login at https://www.mermaidchart.com
-2. Create a new project called "K8S - Kubelet"
-3. For each diagram:
-   - Click "New Diagram"
-   - Name it (e.g., "Pod Deployment Architecture")
-   - Paste the Mermaid code
-   - Save
-4. Organize diagrams in a dashboard
-5. Share or export as needed
-
-### Method 3: VS Code Preview
-1. Open this file in VS Code
-2. Install extension: `Markdown Preview Mermaid Support`
-3. Press `Cmd+Shift+V` to preview
-4. Take screenshots or use print-to-PDF
-
-### Method 4: GitHub/GitLab
-- Push this file to GitHub/GitLab
-- Mermaid renders automatically in markdown preview
-- Use for collaboration and documentation
-
-## Dashboard Layout Recommendations
-
-**Top Row:**
-- Diagram 1: Kubelet Pod Deployment Architecture (Overview)
-- Diagram 2: Detailed Pod Deployment Flow (Sequence)
-
-**Middle Row:**
-- Diagram 3: Kubelet Components (Architecture)
-- Diagram 4: Pod Lifecycle States (State Machine)
-
-**Bottom Row:**
-- Diagram 5: Pod Creation Steps (Flowchart)
-- Diagram 6: Watch and Sync Loop (Process Flow)
-- Diagram 7: CRI Operations (Interface)
-
-## Quick Links
-- Mermaid Live: https://mermaid.live
-- Mermaid Chart: https://www.mermaidchart.com
-- Mermaid Documentation: https://mermaid.js.org/
-- Original Document: [Kubelet-Pod-Deployment.md](./Kubelet-Pod-Deployment.md)
