@@ -63,8 +63,31 @@ echo -e "${GREEN}✓ Loki is running in Kind cluster${NC}"
 
 echo ""
 
-# Step 3: Get Loki service type
-echo -e "${YELLOW}Step 3: Configuring Loki access...${NC}"
+# Step 3: Check if Prometheus is running (optional)
+echo -e "${YELLOW}Step 3: Checking Prometheus installation (optional)...${NC}"
+
+PROMETHEUS_ENABLED=false
+PROMETHEUS_URL=""
+
+if kubectl get svc prometheus -n monitoring &> /dev/null; then
+    echo -e "${GREEN}✓ Prometheus is running in Kind cluster${NC}"
+    PROMETHEUS_ENABLED=true
+
+    PROM_TYPE=$(kubectl get svc prometheus -n monitoring -o jsonpath='{.spec.type}')
+    if [ "$PROM_TYPE" = "NodePort" ]; then
+        PROM_NODEPORT=$(kubectl get svc prometheus -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
+        echo -e "${GREEN}✓ Prometheus exposed on NodePort $PROM_NODEPORT${NC}"
+        PROMETHEUS_URL="http://host.docker.internal:$PROM_NODEPORT"
+    fi
+else
+    echo -e "${YELLOW}⚠ Prometheus not found (optional)${NC}"
+    echo "To install Prometheus, run: ./setup-prometheus.sh"
+fi
+
+echo ""
+
+# Step 4: Get Loki service type
+echo -e "${YELLOW}Step 4: Configuring Loki access...${NC}"
 
 LOKI_TYPE=$(kubectl get svc loki -n logging -o jsonpath='{.spec.type}')
 echo "Current Loki service type: $LOKI_TYPE"
@@ -105,8 +128,8 @@ fi
 
 echo ""
 
-# Step 4: Update datasource configuration
-echo -e "${YELLOW}Step 4: Configuring Grafana datasource...${NC}"
+# Step 5: Update datasource configuration
+echo -e "${YELLOW}Step 5: Configuring Grafana datasources...${NC}"
 
 cat > "$SCRIPT_DIR/provisioning/datasources/loki.yml" <<EOF
 apiVersion: 1
@@ -123,12 +146,33 @@ datasources:
       timeout: 60
 EOF
 
-echo -e "${GREEN}✓ Datasource configured: $LOKI_URL${NC}"
+echo -e "${GREEN}✓ Loki datasource configured: $LOKI_URL${NC}"
+
+# Configure Prometheus datasource if enabled
+if [ "$PROMETHEUS_ENABLED" = true ]; then
+    cat > "$SCRIPT_DIR/provisioning/datasources/prometheus.yml" <<EOF
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: $PROMETHEUS_URL
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: 15s
+      queryTimeout: 60s
+      httpMethod: POST
+EOF
+
+    echo -e "${GREEN}✓ Prometheus datasource configured: $PROMETHEUS_URL${NC}"
+fi
 
 echo ""
 
-# Step 5: Stop existing Grafana container if running
-echo -e "${YELLOW}Step 5: Checking for existing Grafana container...${NC}"
+# Step 6: Stop existing Grafana container if running
+echo -e "${YELLOW}Step 6: Checking for existing Grafana container...${NC}"
 
 if docker ps -a --format '{{.Names}}' | grep -q "^grafana-desktop$"; then
     echo "Stopping and removing existing Grafana container..."
@@ -140,8 +184,8 @@ fi
 
 echo ""
 
-# Step 6: Start Grafana with Docker Compose
-echo -e "${YELLOW}Step 6: Starting Grafana...${NC}"
+# Step 7: Start Grafana with Docker Compose
+echo -e "${YELLOW}Step 7: Starting Grafana...${NC}"
 
 cd "$SCRIPT_DIR"
 docker-compose up -d
@@ -150,8 +194,8 @@ echo -e "${GREEN}✓ Grafana started${NC}"
 
 echo ""
 
-# Step 7: Wait for Grafana to be ready
-echo -e "${YELLOW}Step 7: Waiting for Grafana to be ready...${NC}"
+# Step 8: Wait for Grafana to be ready
+echo -e "${YELLOW}Step 8: Waiting for Grafana to be ready...${NC}"
 echo "This may take 30 seconds..."
 
 RETRY_COUNT=0
@@ -173,8 +217,10 @@ echo -e "${GREEN}✓ Grafana is ready${NC}"
 
 echo ""
 
-# Step 8: Verify Loki connection
-echo -e "${YELLOW}Step 8: Verifying Loki connection...${NC}"
+# Step 9: Verify Loki connection
+echo -e "${YELLOW}Step 9: Verifying connections...${NC}"
+
+echo "Testing Loki connection..."
 
 if [ "$LOKI_URL" = "http://app-demo-control-plane:3100" ]; then
     echo "Testing connection to Loki via Kind network..."
@@ -193,9 +239,19 @@ else
     fi
 fi
 
+# Test Prometheus connection if enabled
+if [ "$PROMETHEUS_ENABLED" = true ]; then
+    echo "Testing Prometheus connection..."
+    if curl -sf http://localhost:$PROM_NODEPORT/-/ready &>/dev/null; then
+        echo -e "${GREEN}✓ Prometheus is accessible${NC}"
+    else
+        echo -e "${YELLOW}⚠ Cannot verify Prometheus connection${NC}"
+    fi
+fi
+
 echo ""
 
-# Step 9: Display summary
+# Step 10: Display summary
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
@@ -205,6 +261,15 @@ echo "  Container: grafana-desktop"
 echo "  URL: http://localhost:3000"
 echo "  Username: admin"
 echo "  Password: admin"
+echo ""
+
+echo -e "${BLUE}Configured Datasources:${NC}"
+echo "  ✓ Loki: $LOKI_URL"
+if [ "$PROMETHEUS_ENABLED" = true ]; then
+    echo "  ✓ Prometheus: $PROMETHEUS_URL"
+else
+    echo "  ⚠ Prometheus: Not configured (run ./setup-prometheus.sh to install)"
+fi
 echo ""
 
 echo -e "${BLUE}Loki Connection:${NC}"

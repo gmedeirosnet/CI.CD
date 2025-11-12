@@ -14,7 +14,10 @@ This document provides a comprehensive reference for all network ports used in t
 | **SonarQube** | 9000 | 9000 | HTTP | http://localhost:9000 | Code quality analysis |
 | **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
+| **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |
 | **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
+| **kube-state-metrics** | 8080 | - | HTTP | - | K8s object metrics |
+| **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
 | **Application** | 8080 | 8080 | HTTP | http://localhost:8080 | Demo Spring Boot app |
 | **ArgoCD UI** | 8080 | 8080 | HTTP | http://localhost:8080 | GitOps deployment UI |
 | **ArgoCD API** | 8080 | 8080 | HTTPS | https://localhost:8080 | GitOps deployment API |
@@ -96,7 +99,7 @@ Database:
 
 ---
 
-### Grafana & Loki
+### Grafana, Loki & Prometheus
 
 ```yaml
 Grafana:
@@ -113,6 +116,10 @@ Grafana:
   Access:
     Username: admin
     Password: admin
+
+  Datasources:
+    - Loki (logs)
+    - Prometheus (metrics)
 
 Loki:
   Internal: 3100 (ClusterIP in K8s)
@@ -131,15 +138,45 @@ Promtail:
   Deployment: DaemonSet (Kind K8s)
   Namespace: logging
 
-Connection:
+Prometheus:
+  Internal: 9090 (ClusterIP in K8s)
+  NodePort: 30090 (for external access)
+  Protocol: HTTP
+  Namespace: monitoring (Kind K8s)
+
+  API Endpoints:
+    UI: http://localhost:30090
+    Ready: http://localhost:30090/-/ready
+    Healthy: http://localhost:30090/-/healthy
+    Targets: http://localhost:30090/targets
+    Config: http://localhost:30090/config
+    Query: http://localhost:30090/api/v1/query
+
+kube-state-metrics:
+  Internal: 8080 (metrics), 8081 (telemetry)
+  Deployment: Deployment (Kind K8s)
+  Namespace: monitoring
+
+node-exporter:
+  Internal: 9100 (metrics)
+  Deployment: DaemonSet (Kind K8s)
+  Namespace: monitoring
+
+Connections:
   Grafana -> Loki: http://host.docker.internal:31000
-  Or via Kind network: http://app-demo-control-plane:3100
+  Grafana -> Prometheus: http://host.docker.internal:30090
+  Prometheus -> kube-state-metrics: kube-state-metrics.monitoring.svc.cluster.local:8080
+  Prometheus -> node-exporter: Pod IP discovery
+  Prometheus -> Loki: loki.logging.svc.cluster.local:3100
 ```
 
 **Port Forward Commands**:
 ```bash
 # Loki (from K8s to host)
 kubectl port-forward -n logging svc/loki 3100:3100
+
+# Prometheus (from K8s to host)
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # Grafana (if in K8s)
 kubectl port-forward -n grafana svc/grafana 3000:3000
@@ -366,6 +403,8 @@ Pod to Service:
 | SonarQube | http://localhost:9000/api/system/health | 200 OK |
 | Grafana | http://localhost:3000/api/health | 200 OK |
 | Loki | http://localhost:31000/ready | ready |
+| Prometheus | http://localhost:30090/-/ready | Prometheus is Ready. |
+| Prometheus (Healthy) | http://localhost:30090/-/healthy | Prometheus is Healthy. |
 | Application | http://localhost:8080/health | 200 OK |
 | ArgoCD | http://localhost:8080/healthz | 200 OK |
 | Kind API | kubectl get --raw='/healthz' | ok |
@@ -419,13 +458,16 @@ export HARBOR_REGISTRY=localhost:${HARBOR_HTTP_PORT}
 
 # SonarQube
 export SONAR_PORT=9000
-export SONAR_HOST=http://localhost:${SONAR_PORT}
+export SONAR_URL=http://localhost:${SONAR_PORT}
 
-# Grafana & Loki
+# Grafana & Monitoring
 export GRAFANA_PORT=3000
 export GRAFANA_URL=http://localhost:${GRAFANA_PORT}
-export LOKI_PORT=31000
-export LOKI_URL=http://localhost:${LOKI_PORT}
+export LOKI_NODEPORT=31000
+export LOKI_URL=http://localhost:${LOKI_NODEPORT}
+export PROMETHEUS_NODEPORT=30090
+export PROMETHEUS_URL=http://localhost:${PROMETHEUS_NODEPORT}
+export SONAR_HOST=http://localhost:${SONAR_PORT}
 
 # Application
 export APP_PORT=8080
@@ -448,17 +490,29 @@ lsof -i -P -n | grep LISTEN
 docker ps --format "{{.Names}}: {{.Ports}}"
 
 # Check Kubernetes service ports
-kubectl get svc -o wide
+kubectl get svc -o wide --all-namespaces
 
-# Port forward to Kubernetes service
-kubectl port-forward svc/myapp 8080:80
+# Check monitoring stack
+kubectl get svc -n logging
+kubectl get svc -n monitoring
+
+# Port forward to Kubernetes services
+kubectl port-forward -n logging svc/loki 3100:3100
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # Test connectivity
 curl -v http://localhost:8080/health
+curl -v http://localhost:31000/ready
+curl -v http://localhost:30090/-/ready
 
 # View Kind cluster configuration
 kind get clusters
 kubectl cluster-info --context kind-kind
+
+# Check all monitoring endpoints
+echo "Grafana: $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health)"
+echo "Loki: $(curl -s http://localhost:31000/ready)"
+echo "Prometheus: $(curl -s http://localhost:30090/-/ready | grep -o 'Ready')"
 ```
 
 ---

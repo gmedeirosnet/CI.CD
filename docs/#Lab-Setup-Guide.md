@@ -730,7 +730,7 @@ Loki collects and aggregates logs from all pods in the Kind cluster.
 
 ```bash
 # Navigate to grafana directory
-cd grafana
+cd k8s/grafana
 
 # Run Loki setup script
 chmod +x setup-loki.sh
@@ -834,7 +834,7 @@ curl http://localhost:31000/ready
 kubectl logs -n logging daemonset/promtail --tail=50
 
 # Restart Grafana if needed
-cd grafana && docker-compose restart
+cd k8s/grafana && docker-compose restart
 ```
 
 **For detailed documentation, see:** [Grafana-Loki.md](Grafana-Loki.md)
@@ -1137,7 +1137,7 @@ argocd app delete cicd-demo
 kind delete cluster --name app-demo
 
 # Stop Grafana
-cd grafana
+cd k8s/grafana
 docker-compose down
 # Or use cleanup script
 ./cleanup-grafana-docker.sh
@@ -1292,7 +1292,7 @@ docker logs grafana-desktop
 lsof -i :3000
 
 # Restart Grafana
-cd grafana && docker-compose restart
+cd k8s/grafana && docker-compose restart
 ```
 
 ### Kind-Specific Issues
