@@ -143,7 +143,7 @@ Prometheus:
   NodePort: 30090 (for external access)
   Protocol: HTTP
   Namespace: monitoring (Kind K8s)
-  
+
   API Endpoints:
     UI: http://localhost:30090
     Ready: http://localhost:30090/-/ready
