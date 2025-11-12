@@ -72,7 +72,7 @@ PROMETHEUS_URL=""
 if kubectl get svc prometheus -n monitoring &> /dev/null; then
     echo -e "${GREEN}✓ Prometheus is running in Kind cluster${NC}"
     PROMETHEUS_ENABLED=true
-    
+
     PROM_TYPE=$(kubectl get svc prometheus -n monitoring -o jsonpath='{.spec.type}')
     if [ "$PROM_TYPE" = "NodePort" ]; then
         PROM_NODEPORT=$(kubectl get svc prometheus -n monitoring -o jsonpath='{.spec.ports[0].nodePort}')
@@ -165,7 +165,7 @@ datasources:
       queryTimeout: 60s
       httpMethod: POST
 EOF
-    
+
     echo -e "${GREEN}✓ Prometheus datasource configured: $PROMETHEUS_URL${NC}"
 fi
 
