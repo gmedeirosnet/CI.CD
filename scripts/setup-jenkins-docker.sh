@@ -127,7 +127,9 @@ docker run -d \
   -v jenkins_home:/var/jenkins_home \
   -v $DOCKER_SOCK:/var/run/docker.sock \
   $DOCKER_GROUP_ADD \
-  jenkins/jenkins:lts
+  --entrypoint /bin/bash \
+  jenkins/jenkins:lts \
+  -c "chmod 666 /var/run/docker.sock 2>/dev/null || true; exec /usr/bin/tini -- /usr/local/bin/jenkins.sh"
 
 echo -e "${GREEN}✓ Jenkins container started${NC}"
 echo ""
@@ -224,15 +226,22 @@ echo -e "${YELLOW}Step 11: Testing Docker commands...${NC}"
 if docker exec jenkins docker ps >/dev/null 2>&1; then
     echo -e "${GREEN}✓ Can list Docker containers${NC}"
 else
-    echo -e "${YELLOW}⚠ Cannot list Docker containers (may need permissions)${NC}"
-    echo "Attempting to fix permissions..."
+    echo -e "${YELLOW}⚠ Cannot list Docker containers - fixing permissions...${NC}"
+    
+    # Fix Docker socket permissions
     docker exec -u root jenkins chmod 666 /var/run/docker.sock 2>/dev/null || true
+    sleep 1
 
     if docker exec jenkins docker ps >/dev/null 2>&1; then
         echo -e "${GREEN}✓ Permissions fixed!${NC}"
     else
         echo -e "${RED}✗ Still cannot access Docker${NC}"
-        echo "Manual fix: docker exec -u root jenkins chmod 666 /var/run/docker.sock"
+        echo "Manual fix required:"
+        echo "  docker exec -u root jenkins chmod 666 /var/run/docker.sock"
+        echo ""
+        echo "Note: On macOS/Windows with Docker Desktop, you may need to:"
+        echo "  1. Restart Docker Desktop"
+        echo "  2. Re-run this script"
     fi
 fi
 echo ""

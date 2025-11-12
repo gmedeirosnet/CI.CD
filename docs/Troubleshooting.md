@@ -164,20 +164,70 @@ agent {
 
 ### Docker Permission Denied in Jenkins
 
-**Symptom**: `permission denied while trying to connect to Docker daemon`
+**Symptom**: `permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock`
+
+**Root Cause**: Jenkins user inside the container doesn't have permission to access the Docker socket mounted from the host.
 
 **Solutions**:
+
+**Quick Fix (Immediate)**:
 ```bash
-# 1. Run Jenkins with proper Docker socket access
-docker run -v /var/run/docker.sock:/var/run/docker.sock jenkins/jenkins
+# Fix Docker socket permissions (works immediately but temporary)
+docker exec -u root jenkins chmod 666 /var/run/docker.sock
 
-# 2. Add Jenkins user to docker group inside container
-docker exec -u root jenkins bash
-usermod -aG docker jenkins
+# Verify Docker access
+docker exec jenkins docker ps
+docker exec jenkins docker --version
+```
 
-# 3. Restart Jenkins container
+**Permanent Fix (Recommended)**:
+```bash
+# Method 1: Re-run the Jenkins setup script (includes permission fix)
+./scripts/setup-jenkins-docker.sh
+
+# Method 2: Restart Jenkins with updated entrypoint (automatic permission fix)
+docker stop jenkins
+docker rm jenkins
+
+docker run -d \
+  --name jenkins \
+  --restart unless-stopped \
+  --network cicd-network \
+  -p 8080:8080 \
+  -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --entrypoint /bin/bash \
+  jenkins/jenkins:lts \
+  -c "chmod 666 /var/run/docker.sock 2>/dev/null || true; exec /usr/bin/tini -- /usr/local/bin/jenkins.sh"
+
+# Method 3: Add Jenkins user to Docker group (Linux only, not for macOS Docker Desktop)
+docker exec -u root jenkins bash -c "groupadd -g $(stat -c '%g' /var/run/docker.sock) docker && usermod -aG docker jenkins"
 docker restart jenkins
 ```
+
+**Verification**:
+```bash
+# Test Docker commands from Jenkins user
+docker exec jenkins docker ps
+docker exec jenkins docker images
+docker exec jenkins docker info
+
+# Test in Jenkins pipeline
+pipeline {
+    agent any
+    stages {
+        stage('Test Docker') {
+            steps {
+                sh 'docker --version'
+                sh 'docker ps'
+            }
+        }
+    }
+}
+```
+
+**Note**: On macOS and Windows with Docker Desktop, the `chmod 666` approach is the recommended solution. The socket permissions may reset on Docker daemon restart, so the setup script includes an automatic fix on container startup.
 
 ### GitHub Webhook Not Triggering
 
