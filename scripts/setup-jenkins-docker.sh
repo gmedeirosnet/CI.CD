@@ -227,7 +227,7 @@ if docker exec jenkins docker ps >/dev/null 2>&1; then
     echo -e "${GREEN}✓ Can list Docker containers${NC}"
 else
     echo -e "${YELLOW}⚠ Cannot list Docker containers - fixing permissions...${NC}"
-    
+
     # Fix Docker socket permissions
     docker exec -u root jenkins chmod 666 /var/run/docker.sock 2>/dev/null || true
     sleep 1
