@@ -23,14 +23,17 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
 
-### Code Quality Analysis
+### Code Quality & Observability
 - **SonarQube** - Code quality and security analysis
+- **Grafana** - Unified visualization and monitoring dashboard
+- **Loki** - Log aggregation and querying system
+- **Prometheus** - Metrics collection and time-series database
 
 ## Repository Structure
 
 ```
 CI.CD/
-├── ai/                          # AI-assisted learning configurations
+├── instructions/                # AI-assisted learning configurations
 │   ├── instructions.json        # Project guidelines
 │   ├── tools.json              # Tool catalog
 │   ├── prompts.json            # Learning prompts
@@ -46,8 +49,11 @@ CI.CD/
 │   ├── Jenkins.md              # Jenkins guide
 │   ├── Maven.md                # Maven guide
 │   ├── SonarQube.md            # SonarQube guide
+│   ├── Grafana-Loki.md         # Grafana, Loki & Prometheus guide
 │   ├── Lab-Setup-Guide.md      # Complete lab setup
 │   ├── Project-Overview.md     # Detailed overview
+│   ├── Port-Reference.md       # All service ports and URLs
+│   ├── Troubleshooting.md      # Common issues and solutions
 │   └── StudyPlan.md            # Learning curriculum
 │
 ├── plan.md                      # Execution plan
@@ -75,9 +81,12 @@ The fastest way to get started:
 ./scripts/setup-all.sh
 
 # 3. Access the services:
-# - Jenkins:   http://localhost:8080
-# - Harbor:    http://localhost:8082
-# - SonarQube: http://localhost:9000
+# - Jenkins:    http://localhost:8080
+# - Harbor:     http://localhost:8082
+# - SonarQube:  http://localhost:9000
+# - Grafana:    http://localhost:3000
+# - Prometheus: http://localhost:30090
+# - Loki:       http://localhost:31000
 ```
 
 ### Manual Setup Steps
@@ -111,6 +120,12 @@ If you prefer step-by-step setup:
    # SonarQube
    ./scripts/setup-sonarqube.sh
 
+   # Grafana + Loki + Prometheus
+   cd k8s/grafana
+   ./setup-loki.sh
+   ./setup-prometheus.sh
+   ./setup-grafana-docker.sh
+
    # ArgoCD
    kubectl create namespace argocd
    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
@@ -128,7 +143,7 @@ If you prefer step-by-step setup:
    - Install suggested plugins
    - Create admin user
 
-2. **Access Harbor** at http://localhost:8082
+3. **Access Harbor** at http://localhost:8082
    - Login: admin / Harbor12345
    - Create project `cicd-demo`:
      - Click **Projects** > **NEW PROJECT**
@@ -144,7 +159,7 @@ If you prefer step-by-step setup:
      - Username: `robot$robot-ci-cd-demo`
      - Password: (the token from script)
 
-3. **Configure Docker to use Harbor**
+4. **Configure Docker to use Harbor**
    ```bash
    # Add to Docker daemon.json:
    {
@@ -153,10 +168,16 @@ If you prefer step-by-step setup:
    # Restart Docker Desktop
    ```
 
-4. **Run your first pipeline**
+5. **Access Grafana** at http://localhost:3000
+   - Login: admin / admin (change on first login)
+   - Verify datasources: Loki and Prometheus should be pre-configured
+   - Import dashboards or create custom queries
+
+6. **Run your first pipeline**
    - Create Jenkins pipeline from Jenkinsfile
    - Trigger build
-   - Watch it build → test → push to Harbor
+   - Watch it build → test → push to Harbor → deploy to Kind
+   - View logs in Grafana (Loki) and metrics in Prometheus
 
 ### Cleanup
 
@@ -201,9 +222,33 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                     Docker Build → Harbor
                          ↓
                     Helm Package → ArgoCD → Kind K8s
+                                                ↓
+                                    ┌───────────┴────────────┐
+                                    ↓                        ↓
+                                Application             Monitoring
+                                                    ┌────────┴────────┐
+                                                    ↓                 ↓
+                                              Logs (Loki)      Metrics (Prometheus)
+                                                    └────────┬────────┘
+                                                             ↓
+                                                         Grafana
+                                                    (on Docker Desktop)
 ```
 
-## Key Features## Key Resources
+## Key Features## Key Features
+
+- **Complete CI/CD Pipeline** - From code commit to Kubernetes deployment
+- **Observability Stack** - Integrated logging (Loki) and metrics (Prometheus) with Grafana visualization
+- **Hands-on Labs** - Practical exercises for each tool
+- **Real-world Application** - Spring Boot demo application
+- **GitOps Workflow** - ArgoCD-based deployment automation
+- **Container Registry** - Harbor with security scanning
+- **Code Quality Gates** - SonarQube integration
+- **Local Kubernetes** - Kind cluster for safe testing
+- **Automated Setup** - Scripts for quick environment provisioning
+- **Comprehensive Documentation** - Step-by-step guides and troubleshooting
+
+## Key Resources
 
 ### Essential Documentation
 - [Architecture Diagram](docs/Architecture-Diagram.md) - Visual pipeline overview
@@ -221,6 +266,7 @@ Developer → GitHub → Jenkins → Maven → SonarQube
 - [ArgoCD](docs/ArgoCD.md) - GitOps deployment
 - [SonarQube](docs/SonarQube.md) - Code quality
 - [Maven](docs/Maven.md) - Build automation
+- [Grafana, Loki & Prometheus](docs/Grafana-Loki.md) - Monitoring and logging
 
 ### Learning Materials
 - [Study Plan](docs/StudyPlan.md) - DevOps learning curriculum
@@ -229,13 +275,13 @@ Developer → GitHub → Jenkins → Maven → SonarQube
 ## What's Included
 
 - Complete CI/CD pipeline implementation
+- Integrated monitoring and logging stack (Prometheus, Loki, Grafana)
 - Hands-on labs for each tool
 - Real-world Spring Boot demo application
-- Kubernetes deployment examples
+- Kubernetes deployment examples with observability
 - Helm charts and manifests
 - Jenkins pipeline scripts
 - Docker configurations
-- Ansible playbooks
 - Best practices and security guidelines
 - Troubleshooting guides
 - Integration patterns
@@ -257,6 +303,7 @@ CI.CD/
 │   ├── Port-Reference.md
 │   ├── Troubleshooting.md
 │   ├── Cleanup-Guide.md
+│   ├── Grafana-Loki.md    # Monitoring & logging guide
 │   └── [Tool Guides...]
 │
 ├── scripts/               # Automation scripts
@@ -272,11 +319,24 @@ CI.CD/
 ├── helm-charts/          # Kubernetes Helm charts
 │   └── cicd-demo/
 │
-├── k8s/                  # Kubernetes manifests
+├── k8s/                  # Kubernetes configurations
+│   ├── grafana/         # Grafana, Loki & Promtail setup
+│   │   ├── docker-compose.yml
+│   │   ├── setup-grafana-docker.sh
+│   │   ├── setup-loki.sh
+│   │   ├── setup-prometheus.sh
+│   │   └── provisioning/
+│   │       └── datasources/
+│   │           ├── loki.yml
+│   │           └── prometheus.yml
+│   ├── prometheus/      # Prometheus monitoring stack
+│   │   ├── prometheus-config.yaml
+│   │   ├── prometheus-deployment.yaml
+│   │   ├── prometheus-rbac.yaml
+│   │   ├── kube-state-metrics.yaml
+│   │   └── node-exporter.yaml
+│   ├── kind-config.yaml
 │   └── sample-app/
-│
-├── ansible/              # Ansible configurations
-│   └── inventory.ini
 │
 ├── harbor/               # Harbor registry setup
 │   └── docker-compose.yml
@@ -313,18 +373,22 @@ CI.CD/
 ## Success Metrics
 
 After completing this lab, you will be able to:
-- Build and containerize applications
-- Create CI/CD pipelines
-- Deploy to Kubernetes
-- Implement GitOps workflows
+- Build and containerize applications with Docker
+- Create automated CI/CD pipelines with Jenkins
+- Deploy to Kubernetes using GitOps (ArgoCD)
+- Manage container images with Harbor registry
+- Implement code quality gates with SonarQube
+- Monitor applications with Prometheus metrics
+- Aggregate and query logs with Loki
+- Visualize data with Grafana dashboards
+- Use Helm for Kubernetes package management
 - Manage infrastructure as code
-- Ensure code quality and security
-- Troubleshoot common issues
-- Follow DevOps best practices
+- Troubleshoot containerized applications
+- Follow DevOps best practices and security standards
 
 ## Guidelines
 
-- All AI configurations are in JSON format in `/ai` directory
+- All AI configurations are in JSON format in `/instructions` directory
 - Documentation files are in `/docs` directory only
 - No emojis in documentation
 - Git commands require explicit permission
@@ -347,11 +411,13 @@ This is a learning laboratory. Contributions welcome:
 - [Kubernetes](https://kubernetes.io/docs/)
 - [ArgoCD](https://argo-cd.readthedocs.io/)
 - [Helm](https://helm.sh/docs/)
-- [Ansible](https://docs.ansible.com/)
 - [Maven](https://maven.apache.org/guides/)
 - [SonarQube](https://docs.sonarqube.org/)
 - [Harbor](https://goharbor.io/docs/)
 - [Kind](https://kind.sigs.k8s.io/)
+- [Grafana](https://grafana.com/docs/)
+- [Loki](https://grafana.com/docs/loki/latest/)
+- [Prometheus](https://prometheus.io/docs/)
 
 ### Study Reference
 - [NotebookLM Study Guide](https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464)
