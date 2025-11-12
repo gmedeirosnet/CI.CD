@@ -1,6 +1,6 @@
-# Grafana & Loki Logging Setup
+# Grafana, Loki & Prometheus Monitoring Setup
 
-This guide covers the installation and configuration of Grafana and Loki for Kubernetes log aggregation in the CI/CD project.
+This guide covers the installation and configuration of Grafana, Loki, and Prometheus for comprehensive Kubernetes monitoring, logging, and metrics collection in the CI/CD project.
 
 ## Table of Contents
 
@@ -19,48 +19,65 @@ This guide covers the installation and configuration of Grafana and Loki for Kub
 
 ## Overview
 
-The logging stack consists of:
+The monitoring and logging stack consists of:
 - **Loki** - Log aggregation system (runs in Kind Kubernetes cluster)
 - **Promtail** - Log collector agent (DaemonSet on all nodes)
-- **Grafana** - Visualization and querying interface (runs on Docker Desktop)
+- **Prometheus** - Metrics collection and time-series database (runs in Kind Kubernetes cluster)
+- **kube-state-metrics** - Kubernetes object metrics exporter
+- **node-exporter** - System and hardware metrics exporter (DaemonSet on all nodes)
+- **Grafana** - Unified visualization and querying interface (runs on Docker Desktop)
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Docker Desktop                                          │
-│                                                         │
-│  ┌──────────────────┐                                  │
-│  │   Grafana        │                                  │
-│  │  (Port 3000)     │                                  │
-│  └────────┬─────────┘                                  │
-│           │                                             │
-│           │ Connects via:                              │
-│           │ - NodePort (31000) OR                      │
-│           │ - Kind network bridge                       │
-│           │                                             │
-└───────────┼─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Docker Desktop                                              │
+│                                                             │
+│  ┌──────────────────┐                                      │
+│  │   Grafana        │                                      │
+│  │  (Port 3000)     │                                      │
+│  └────────┬─────────┘                                      │
+│           │                                                 │
+│           │ Connects via NodePort:                         │
+│           │ - Loki:       31000                            │
+│           │ - Prometheus: 30090                            │
+│           │                                                 │
+└───────────┼─────────────────────────────────────────────────┘
             │
             ▼
-┌─────────────────────────────────────────────────────────┐
-│ Kind Kubernetes Cluster (on Docker)                    │
-│                                                         │
-│  ┌────────────────────────────────────┐                │
-│  │ Namespace: logging                 │                │
-│  │                                    │                │
-│  │  ┌──────────┐      ┌───────────┐  │                │
-│  │  │  Loki    │      │ Promtail  │  │                │
-│  │  │ (3100)   │◄─────┤(DaemonSet)│  │                │
-│  │  └──────────┘      └───────────┘  │                │
-│  │                           │        │                │
-│  └───────────────────────────┼────────┘                │
-│                              │                         │
-│                              ▼                         │
-│  ┌────────────────────────────────────┐                │
-│  │ All Pods in Cluster                │                │
-│  │ (Logs collected by Promtail)       │                │
-│  └────────────────────────────────────┘                │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Kind Kubernetes Cluster (on Docker)                        │
+│                                                             │
+│  ┌────────────────────────────────────┐                    │
+│  │ Namespace: logging                 │                    │
+│  │                                    │                    │
+│  │  ┌──────────┐      ┌───────────┐  │                    │
+│  │  │  Loki    │      │ Promtail  │  │                    │
+│  │  │ (3100)   │◄─────┤(DaemonSet)│  │                    │
+│  │  └──────────┘      └───────────┘  │                    │
+│  │                           │        │                    │
+│  └───────────────────────────┼────────┘                    │
+│                              │                             │
+│  ┌────────────────────────────────────────┐                │
+│  │ Namespace: monitoring                  │                │
+│  │                                        │                │
+│  │  ┌────────────┐  ┌──────────────────┐ │                │
+│  │  │ Prometheus │  │ kube-state-      │ │                │
+│  │  │  (9090)    │◄─┤ metrics (8080)   │ │                │
+│  │  └─────┬──────┘  └──────────────────┘ │                │
+│  │        │                               │                │
+│  │        │         ┌──────────────────┐ │                │
+│  │        └─────────┤ node-exporter    │ │                │
+│  │                  │ (DaemonSet:9100) │ │                │
+│  │                  └──────────────────┘ │                │
+│  └────────────────────────────────────────┘                │
+│                     │                                      │
+│                     ▼                                      │
+│  ┌─────────────────────────────────────────┐              │
+│  │ All Pods, Nodes & Services in Cluster  │              │
+│  │ (Logs → Promtail, Metrics → Prometheus)│              │
+│  └─────────────────────────────────────────┘              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Prerequisites
@@ -77,7 +94,7 @@ The logging stack consists of:
 Loki runs in the Kind Kubernetes cluster and aggregates logs from all pods.
 
 ```bash
-cd grafana
+cd k8s/grafana
 ./setup-loki.sh
 ```
 
@@ -99,22 +116,64 @@ kubectl logs -n logging deployment/loki
 Grafana runs on Docker Desktop and connects to Loki in the Kind cluster.
 
 ```bash
-cd grafana
+cd k8s/grafana
 ./setup-grafana-docker.sh
 ```
 
 **What it does:**
 1. Checks if Loki is running in Kind
-2. Configures Loki access (NodePort or network bridge)
-3. Creates Loki datasource configuration
-4. Starts Grafana with Docker Compose
-5. Pre-configures Loki as default datasource
-6. Verifies connectivity
+2. Checks if Prometheus is running (optional)
+3. Configures datasource access via NodePort
+4. Creates Loki and Prometheus datasource configurations
+5. Starts Grafana with Docker Compose
+6. Pre-configures both datasources
+7. Verifies connectivity
 
 **Manual installation:**
 ```bash
 # If automated script doesn't work
-cd grafana
+cd k8s/grafana
+docker-compose up -d
+```
+
+### Prometheus Setup
+
+Prometheus runs in the Kind Kubernetes cluster and collects metrics from all components.
+
+```bash
+cd k8s/grafana
+./setup-prometheus.sh
+```
+
+**What it does:**
+1. Creates `monitoring` namespace
+2. Deploys Prometheus with 10GB persistent storage (15-day retention)
+3. Deploys kube-state-metrics for Kubernetes object metrics
+4. Deploys node-exporter as DaemonSet for system metrics
+5. Configures RBAC permissions for metric scraping
+6. Sets up scrape configurations for:
+   - Prometheus self-monitoring
+   - Kubernetes API server
+   - Kubernetes nodes
+   - kube-state-metrics
+   - node-exporter
+   - Loki metrics
+   - Annotated pods (prometheus.io/scrape=true)
+7. Exposes Prometheus via NodePort 30090
+
+**Verify installation:**
+```bash
+kubectl get pods -n monitoring
+kubectl logs -n monitoring deployment/prometheus
+
+# Check scrape targets
+open http://localhost:30090/targets
+```
+
+**Manual installation:**
+```bash
+# If automated script doesn't work
+cd k8s/grafana
 docker-compose up -d
 ```
 
@@ -265,6 +324,107 @@ count by (error) ({namespace="default"} | json | level="error")
 quantile_over_time(0.95, {namespace="default"} | json | unwrap duration [5m])
 ```
 
+## PromQL Query Examples
+
+### Basic Metrics
+
+```promql
+# CPU usage by pod
+sum(rate(container_cpu_usage_seconds_total[5m])) by (pod)
+
+# Memory usage by namespace
+sum(container_memory_usage_bytes) by (namespace)
+
+# Network bytes received
+sum(rate(container_network_receive_bytes_total[5m])) by (pod)
+
+# Disk usage
+sum(container_fs_usage_bytes) by (pod)
+```
+
+### Node Metrics
+
+```promql
+# Node CPU usage percentage
+100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Node memory usage percentage
+100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))
+
+# Node disk usage
+100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"})
+
+# Network traffic by node
+rate(node_network_receive_bytes_total[5m])
+```
+
+### Kubernetes Object Metrics
+
+```promql
+# Pod count by namespace
+count(kube_pod_info) by (namespace)
+
+# Deployment replica status
+kube_deployment_status_replicas_available / kube_deployment_spec_replicas
+
+# Failed pods
+kube_pod_status_phase{phase="Failed"}
+
+# Pending pods
+count(kube_pod_status_phase{phase="Pending"})
+
+# Container restarts
+sum(rate(kube_pod_container_status_restarts_total[5m])) by (pod)
+```
+
+### Resource Requests & Limits
+
+```promql
+# CPU requests by namespace
+sum(kube_pod_container_resource_requests{resource="cpu"}) by (namespace)
+
+# Memory limits by pod
+sum(kube_pod_container_resource_limits{resource="memory"}) by (pod)
+
+# Pods over memory limit
+sum(container_memory_usage_bytes) / sum(kube_pod_container_resource_limits{resource="memory"}) * 100
+
+# CPU throttling
+rate(container_cpu_cfs_throttled_seconds_total[5m])
+```
+
+### Application Metrics
+
+```promql
+# HTTP request rate
+sum(rate(http_requests_total[5m])) by (job)
+
+# HTTP error rate (4xx, 5xx)
+sum(rate(http_requests_total{status=~"4..|5.."}[5m])) / sum(rate(http_requests_total[5m]))
+
+# Request duration 95th percentile
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+# Active connections
+sum(http_server_active_connections) by (instance)
+```
+
+### Prometheus Meta Metrics
+
+```promql
+# Prometheus targets up
+up
+
+# Scrape duration
+scrape_duration_seconds
+
+# Time series count
+prometheus_tsdb_symbol_table_size_bytes
+
+# Storage size
+prometheus_tsdb_storage_blocks_bytes
+```
+
 ## Management Commands
 
 ### Loki (Kubernetes)
@@ -300,13 +460,13 @@ curl 'http://localhost:3100/loki/api/v1/labels'
 docker logs -f grafana-desktop
 
 # Restart
-cd grafana && docker-compose restart
+cd k8s/grafana && docker-compose restart
 
 # Stop
-cd grafana && docker-compose down
+cd k8s/grafana && docker-compose down
 
 # Rebuild and restart
-cd grafana && docker-compose down && docker-compose up -d --force-recreate
+cd k8s/grafana && docker-compose down && docker-compose up -d --force-recreate
 
 # Access shell
 docker exec -it grafana-desktop /bin/bash
@@ -315,17 +475,54 @@ docker exec -it grafana-desktop /bin/bash
 docker inspect grafana-desktop | grep -A 10 Health
 ```
 
+### Prometheus (Kubernetes)
+
+```bash
+# Check status
+kubectl get pods -n monitoring
+
+# View logs
+kubectl logs -n monitoring deployment/prometheus --tail=100 -f
+kubectl logs -n monitoring deployment/kube-state-metrics --tail=100 -f
+kubectl logs -n monitoring daemonset/node-exporter --tail=100 -f
+
+# Restart
+kubectl rollout restart deployment/prometheus -n monitoring
+kubectl rollout restart deployment/kube-state-metrics -n monitoring
+kubectl rollout restart daemonset/node-exporter -n monitoring
+
+# Port forward for testing
+kubectl port-forward -n monitoring svc/prometheus 9090:9090
+
+# Test Prometheus API
+curl http://localhost:30090/-/ready
+curl http://localhost:30090/-/healthy
+curl http://localhost:30090/api/v1/targets
+curl http://localhost:30090/api/v1/query?query=up
+
+# Reload configuration (without restart)
+kubectl exec -n monitoring deployment/prometheus -- \
+  wget --post-data='' -O- http://localhost:9090/-/reload
+
+# Check configuration
+kubectl exec -n monitoring deployment/prometheus -- \
+  promtool check config /etc/prometheus/prometheus.yml
+```
+
 ### Verify Connectivity
 
 ```bash
 # From Grafana to Loki (Docker to Kind)
 docker exec grafana-desktop wget -qO- http://host.docker.internal:31000/ready
 
-# Or via Kind network bridge
-docker exec grafana-desktop wget -qO- http://app-demo-control-plane:3100/ready
+# From Grafana to Prometheus (Docker to Kind)
+docker exec grafana-desktop wget -qO- http://host.docker.internal:30090/-/ready
 
 # From host to Loki
 curl http://localhost:31000/ready
+
+# From host to Prometheus
+curl http://localhost:30090/-/ready
 ```
 
 ## Troubleshooting
@@ -364,13 +561,40 @@ curl http://localhost:31000/ready
 **Test from Grafana container:**
 ```bash
 docker exec grafana-desktop wget -qO- http://host.docker.internal:31000/ready
+docker exec grafana-desktop wget -qO- http://host.docker.internal:30090/-/ready
 ```
 
-**Check Grafana datasource:**
+**Check Grafana datasources:**
 1. Open http://localhost:3000/connections/datasources
-2. Click on "Loki"
+2. Click on "Loki" or "Prometheus"
 3. Click "Test" button
 4. Should show "Data source is working"
+
+### Prometheus Not Scraping Targets
+
+**Check scrape targets:**
+```bash
+# View targets in UI
+open http://localhost:30090/targets
+
+# Or via API
+curl http://localhost:30090/api/v1/targets | jq .
+```
+
+**Common issues:**
+- RBAC permissions not set: `kubectl get clusterrolebinding prometheus`
+- ServiceAccount not configured: `kubectl get sa -n monitoring prometheus`
+- Network policies blocking: `kubectl get networkpolicies -A`
+
+**Fix scrape configuration:**
+```bash
+# Edit ConfigMap
+kubectl edit configmap prometheus-config -n monitoring
+
+# Then reload Prometheus
+kubectl exec -n monitoring deployment/prometheus -- \
+  wget --post-data='' -O- http://localhost:9090/-/reload
+```
 
 ### Permission Errors
 
@@ -379,8 +603,18 @@ docker exec grafana-desktop wget -qO- http://host.docker.internal:31000/ready
 kubectl logs -n logging daemonset/promtail
 # Look for permission denied errors
 
-# Fix with updated RBAC
-kubectl apply -f grafana/setup-loki.sh
+# Reapply RBAC configuration
+cd k8s/grafana
+./setup-loki.sh
+```
+
+**Prometheus can't scrape metrics:**
+```bash
+kubectl logs -n monitoring deployment/prometheus | grep -i "permission\|forbidden"
+
+# Reapply RBAC configuration
+cd k8s/grafana
+./setup-prometheus.sh
 ```
 
 ### High Memory Usage
@@ -393,6 +627,19 @@ kubectl top pod -n logging
 # Adjust resource limits
 kubectl edit deployment loki -n logging
 # Modify resources.limits.memory
+```
+
+**Prometheus using too much memory:**
+```bash
+# Check resource usage
+kubectl top pod -n monitoring
+
+# Check TSDB size
+kubectl exec -n monitoring deployment/prometheus -- \
+  du -sh /prometheus
+
+# Adjust retention or reduce scrape frequency
+kubectl edit configmap prometheus-config -n monitoring
 ```
 
 **Grafana using too much memory:**
@@ -439,11 +686,11 @@ docker stats grafana-desktop
 
 ```bash
 # Stop Grafana (keep data)
-cd grafana
+cd k8s/grafana
 docker-compose down
 
 # Stop Grafana (remove data)
-cd grafana
+cd k8s/grafana
 ./cleanup-grafana-docker.sh
 # Choose "yes" to remove data
 ```
@@ -454,15 +701,19 @@ cd grafana
 # Remove Loki and Promtail
 kubectl delete namespace logging
 
-# Remove Grafana (if installed in K8s)
-kubectl delete namespace grafana
+# Remove Prometheus and metrics exporters
+kubectl delete namespace monitoring
+
+# Clean up cluster roles and bindings
+kubectl delete clusterrole prometheus loki kube-state-metrics
+kubectl delete clusterrolebinding prometheus loki kube-state-metrics
 ```
 
 ### Complete Cleanup
 
 ```bash
 # Remove all Docker resources
-cd grafana
+cd k8s/grafana
 docker-compose down -v
 
 # Remove Kind cluster (if needed)
@@ -477,12 +728,22 @@ docker system prune -a
 ### Loki (Kubernetes)
 - **Storage:** PersistentVolumeClaim `loki-pvc` in `logging` namespace
 - **Size:** 10GB
+- **Retention:** Based on available storage
 - **Location:** Managed by Kind cluster
 
-**Backup:**
+### Prometheus (Kubernetes)
+- **Storage:** PersistentVolumeClaim `prometheus-pvc` in `monitoring` namespace
+- **Size:** 10GB (9GB usable, 1GB buffer)
+- **Retention:** 15 days
+- **Location:** Managed by Kind cluster
+
+**Check storage usage:**
 ```bash
-# Not recommended for local development
-# For production, use object storage (S3, GCS, etc.)
+# Loki
+kubectl exec -n logging deployment/loki -- du -sh /loki
+
+# Prometheus
+kubectl exec -n monitoring deployment/prometheus -- du -sh /prometheus
 ```
 
 ### Grafana (Docker)
@@ -508,17 +769,27 @@ docker run --rm -v grafana-data:/data -v $(pwd):/backup alpine \
 | Grafana | 3000 | HTTP | Docker Desktop |
 | Loki | 3100 | HTTP | Kind cluster internal |
 | Loki NodePort | 31000 | HTTP | Host → Kind cluster |
+| Prometheus | 9090 | HTTP | Kind cluster internal |
+| Prometheus NodePort | 30090 | HTTP | Host → Kind cluster |
 | Promtail | 9080 | HTTP | Metrics endpoint |
+| kube-state-metrics | 8080 | HTTP | Metrics endpoint |
+| node-exporter | 9100 | HTTP | Metrics endpoint |
 
 ## Configuration Files
 
 | File | Purpose |
-|------|---------|
-| `grafana/docker-compose.yml` | Grafana container definition |
-| `grafana/setup-loki.sh` | Loki installation script |
-| `grafana/setup-grafana-docker.sh` | Grafana installation script |
-| `grafana/provisioning/datasources/loki.yml` | Loki datasource config |
-| `grafana/provisioning/dashboards/dashboards.yml` | Dashboard provisioning |
+|------|---------||
+| `k8s/grafana/docker-compose.yml` | Grafana container definition |
+| `k8s/grafana/setup-loki.sh` | Loki installation script |
+| `k8s/grafana/setup-grafana-docker.sh` | Grafana installation script |
+| `k8s/grafana/setup-prometheus.sh` | Prometheus installation script |
+| `k8s/grafana/provisioning/datasources/loki.yml` | Loki datasource config |
+| `k8s/grafana/provisioning/datasources/prometheus.yml` | Prometheus datasource config |
+| `k8s/grafana/provisioning/dashboards/dashboards.yml` | Dashboard provisioning |
+| `k8s/prometheus/prometheus-config.yaml` | Prometheus scrape configuration |
+| `k8s/prometheus/prometheus-deployment.yaml` | Prometheus deployment manifest |
+| `k8s/prometheus/kube-state-metrics.yaml` | Kubernetes metrics exporter |
+| `k8s/prometheus/node-exporter.yaml` | Node metrics exporter |
 
 ## Related Documentation
 
