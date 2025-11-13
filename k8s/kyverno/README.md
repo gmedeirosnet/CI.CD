@@ -321,14 +321,25 @@ Add Kyverno metrics to Prometheus:
 kubectl apply -f monitoring/prometheus-servicemonitor.yaml
 
 # Port-forward to view metrics
-kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8000:8000
-curl http://localhost:8000/metrics
+# Note: If port 8000 is in use (e.g., by k9s), use an alternative local port
+kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8002:8000
+
+# Test metrics endpoint
+curl -s http://localhost:8002/metrics | head -20
+
+# View Kyverno-specific metrics
+curl -s http://localhost:8002/metrics | grep "^kyverno_"
+
+# Check policy execution metrics
+curl -s http://localhost:8002/metrics | grep -E "kyverno_(policy_|rule_)"
 ```
 
 Key metrics:
 - `kyverno_policy_rule_results_total`: Policy evaluation results
 - `kyverno_admission_requests_total`: Total admission requests
 - `kyverno_admission_review_duration_seconds`: Request processing time
+- `kyverno_policy_changes_total`: Policy lifecycle events (created/updated/deleted)
+- `kyverno_admission_review_duration_seconds_bucket`: Latency distribution
 
 ## Switching to Enforce Mode
 

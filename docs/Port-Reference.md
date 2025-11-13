@@ -332,6 +332,7 @@ Metrics Port:
   Internal: 8000
   Protocol: HTTP
   Namespace: kyverno (Kind K8s)
+  Note: Port 8000 often conflicts with k9s or other tools
 
 Webhook Server:
   Internal Port: 9443 (HTTPS)
@@ -343,25 +344,44 @@ Metrics Endpoints:
     - kyverno_policy_rule_results_total: Policy evaluation results
     - kyverno_admission_requests_total: Total admission requests
     - kyverno_admission_review_duration_seconds: Request processing time
+    - kyverno_policy_changes_total: Policy lifecycle tracking
 
 Prometheus Integration:
-  ServiceMonitor: monitoring/prometheus-servicemonitor.yaml
+  ServiceMonitor: k8s/kyverno/monitoring/prometheus-servicemonitor.yaml
   Scrape Interval: 30s
+  Target: kyverno-svc-metrics.kyverno.svc.cluster.local:8000
 
 Policy Reports:
   Access via kubectl:
     - kubectl get clusterpolicyreport -A
     - kubectl get policyreport -n app-demo
+    - kubectl describe policyreport -n app-demo
 
 Webhooks:
   Validating: kyverno-resource-validating-webhook-cfg
   Mutating: kyverno-resource-mutating-webhook-cfg
+  Port: 9443
 ```
 
 **Port Forward for Metrics** (optional):
 ```bash
-kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8000:8000
-curl http://localhost:8000/metrics
+# Check if port 8000 is available
+lsof -i :8000
+
+# If port 8000 is in use, use alternative port (recommended)
+kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8002:8000
+
+# Test metrics endpoint
+curl -s http://localhost:8002/metrics | head -20
+
+# View Kyverno-specific metrics
+curl -s http://localhost:8002/metrics | grep "^kyverno_"
+
+# Check policy execution details
+curl -s http://localhost:8002/metrics | grep -E "kyverno_(policy_|rule_)"
+
+# Stop port-forward when done
+pkill -f "port-forward.*kyverno-svc-metrics"
 ```
 
 ---
