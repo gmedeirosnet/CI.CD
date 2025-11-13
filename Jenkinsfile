@@ -300,7 +300,7 @@ pipeline {
                                                      passwordVariable: 'ARGOCD_PASS')]) {
                         sh """
                             # Set ArgoCD server - use host.docker.internal to reach host from container
-                            export ARGOCD_SERVER='host.docker.internal:8090'
+                            export ARGOCD_SERVER='host.docker.internal:8081'
 
                             # Login to ArgoCD
                             argocd login \${ARGOCD_SERVER} \
