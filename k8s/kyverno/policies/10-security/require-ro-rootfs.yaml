@@ -1,0 +1,52 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ro-rootfs
+  annotations:
+    policies.kyverno.io/title: Require Read-Only Root Filesystem
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers should use a read-only root filesystem to prevent
+      malicious code from writing to the container filesystem.
+      Applications requiring write access should use volume mounts.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: check-ro-rootfs
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - kyverno
+          - argocd
+          - monitoring
+          - logging
+    validate:
+      message: >-
+        Root filesystem should be read-only.
+        Set securityContext.readOnlyRootFilesystem: true
+
+        If your app needs to write, use emptyDir or persistent volumes.
+
+        Example:
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+          - name: tmp
+            mountPath: /tmp
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              readOnlyRootFilesystem: true

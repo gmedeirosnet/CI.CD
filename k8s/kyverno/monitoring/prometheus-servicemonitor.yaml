@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-metrics
+  namespace: kyverno
+  labels:
+    app: kyverno
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: kyverno
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kyverno
+  namespace: kyverno
+  labels:
+    app: kyverno
+spec:
+  selector:
+    matchLabels:
+      app: kyverno
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
