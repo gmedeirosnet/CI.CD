@@ -18,13 +18,13 @@ serviceAccount:
 service:
   type: NodePort  # Changed from LoadBalancer for Kind compatibility
   port: 80
-  targetPort: 9090
-  containerPort: 9090
+  targetPort: 8000
+  containerPort: 8000
 
 livenessProbe:
   httpGet:
     path: /health
-    port: 9090
+    port: 8000
   initialDelaySeconds: 30
   periodSeconds: 10
   timeoutSeconds: 5
@@ -33,7 +33,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /health
-    port: 9090
+    port: 8000
   initialDelaySeconds: 10
   periodSeconds: 5
   timeoutSeconds: 3

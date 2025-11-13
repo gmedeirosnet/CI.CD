@@ -192,8 +192,8 @@ graph TB
                 W2[Worker Node 2]
 
                 subgraph "Pods"
-                    APP1[App Pod 1<br/>:8080]
-                    APP2[App Pod 2<br/>:8080]
+                    APP1[App Pod 1<br/>:8000]
+                    APP2[App Pod 2<br/>:8000]
                 end
             end
 
@@ -364,10 +364,9 @@ stateDiagram-v2
 | Service | Internal Port | External Port | Protocol | Access URL |
 |---------|--------------|---------------|----------|------------|
 | Jenkins | 8080 | 8080 | HTTP | http://localhost:8080 |
-| Harbor (HTTP) | 80 | 8082 | HTTP | http://localhost:8082 |
-| Harbor (HTTPS) | 443 | 8443 | HTTPS | https://localhost:8443 |
+| Harbor | 80/443 | 8082/8443 | HTTP/HTTPS | http://localhost:8082 |
 | SonarQube | 9000 | 9000 | HTTP | http://localhost:9000 |
-| Application | 8080 | 8080 | HTTP | http://localhost:8080 |
+| Application | 8000 | 8000 | HTTP | http://localhost:8000 |
 | ArgoCD | 8080 | 8080 | HTTP | http://localhost:8080 |
 | Kind API Server | 6443 | 6443 | HTTPS | https://localhost:6443 |
 
