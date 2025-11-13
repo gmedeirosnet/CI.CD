@@ -15,14 +15,53 @@ This document provides a comprehensive reference for all network ports used in t
 | **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
 | **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |
+| **ArgoCD** | 80 | 8081 | HTTP | http://localhost:8081 | GitOps deployment UI |
 | **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
 | **kube-state-metrics** | 8080 | - | HTTP | - | K8s object metrics |
 | **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
 | **Application** | 8080 | 8080 | HTTP | http://localhost:8080 | Demo Spring Boot app |
-| **ArgoCD UI** | 8080 | 8080 | HTTP | http://localhost:8080 | GitOps deployment UI |
-| **ArgoCD API** | 8080 | 8080 | HTTPS | https://localhost:8080 | GitOps deployment API |
 | **Kind API Server** | 6443 | 6443 | HTTPS | https://127.0.0.1:6443 | Kubernetes API |
 | **Kind Dashboard** | - | 30000-32767 | HTTP | http://localhost:30xxx | K8s NodePort services |
+
+## Automated Port Forwarding
+
+The lab includes an automated script for managing Kubernetes port forwards and Docker permissions.
+
+**Script**: `scripts/k8s-permissions_port-forward.sh`
+
+**Features**:
+- Automatically fixes Docker socket permissions for Jenkins
+- Manages port forwards for Loki, Prometheus, and ArgoCD
+- PID-based tracking for reliable start/stop
+- Status monitoring and orphaned process cleanup
+
+**Usage**:
+```bash
+# Start all port forwards (includes Docker permission fix)
+./scripts/k8s-permissions_port-forward.sh start
+
+# Check status
+./scripts/k8s-permissions_port-forward.sh status
+
+# Stop all port forwards
+./scripts/k8s-permissions_port-forward.sh stop
+
+# Restart all
+./scripts/k8s-permissions_port-forward.sh restart
+
+# Fix Docker permissions only
+./scripts/k8s-permissions_port-forward.sh fix-docker
+
+# Cleanup orphaned processes
+./scripts/k8s-permissions_port-forward.sh cleanup
+```
+
+**Managed Services**:
+- **Loki**: localhost:31000 → logging/loki:3100
+- **Prometheus**: localhost:30090 → monitoring/prometheus:9090
+- **ArgoCD**: localhost:8081 → argocd/argocd-server:80
+
+**PID Files**: Stored in `/tmp/k8s-port-forward/*.pid`
 
 ## Detailed Service Configurations
 
@@ -170,13 +209,20 @@ Connections:
   Prometheus -> Loki: loki.logging.svc.cluster.local:3100
 ```
 
-**Port Forward Commands**:
+**Port Forward Commands (Manual)**:
+
+For automated port forwarding, use `scripts/k8s-permissions_port-forward.sh start`
+
+Manual commands:
 ```bash
 # Loki (from K8s to host)
-kubectl port-forward -n logging svc/loki 3100:3100
+kubectl port-forward -n logging svc/loki 31000:3100
 
 # Prometheus (from K8s to host)
-kubectl port-forward -n monitoring svc/prometheus 9090:9090
+kubectl port-forward -n monitoring svc/prometheus 30090:9090
+
+# ArgoCD (from K8s to host)
+kubectl port-forward -n argocd svc/argocd-server 8081:80
 
 # Grafana (if in K8s)
 kubectl port-forward -n grafana svc/grafana 3000:3000
@@ -238,12 +284,13 @@ Kubernetes Service:
 
 ```yaml
 Server Port:
-  External: 8080 (HTTP redirect)
-  External: 8443 (HTTPS)
-  Internal: 8080
+  External: 8081 (HTTP - automated script)
+  External: 8080 (HTTP - manual)
+  External: 8443 (HTTPS - manual)
+  Internal: 80/443
 
 API Server:
-  URL: localhost:8080
+  URL: localhost:8081 (automated) or localhost:8080 (manual)
   gRPC Port: 8080
 
 Repo Server:
@@ -254,12 +301,26 @@ Redis:
 
 Metrics:
   Internal Port: 8082
+
+Namespace:
+  argocd (Kind K8s)
 ```
 
-**Port Forward Command**:
+**Automated Access**:
+```bash
+# Start port forward (includes Docker permission fix)
+./scripts/k8s-permissions_port-forward.sh start
+
+# Access UI
+open http://localhost:8081
+```
+
+**Manual Port Forward Command**:
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
+
+**Note**: Automated script uses port 8081 to avoid conflict with Jenkins (8080)
 
 ---
 
@@ -269,14 +330,16 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 | Port | Common Conflicts | Solution |
 |------|-----------------|----------|
-| 8080 | Jenkins, Application, ArgoCD, Tomcat | Use different external ports |
+| 8080 | Jenkins, Application, Tomcat | Use different external ports (ArgoCD→8081) |
 | 9000 | SonarQube, Other applications | Change SonarQube port |
 | 8082 | Harbor, Other services | Modify Harbor configuration |
 | 3000 | Node.js apps, Grafana, Dev servers | Use alternative port (3001) |
-| 3100 | Loki, Other log collectors | Change NodePort mapping |
+| 3100 | Loki, Other log collectors | Use NodePort 31000 mapping |
 | 5432 | PostgreSQL databases | Use Docker networks |
 
 ### Checking Port Usage
+
+The automated script (`k8s-permissions_port-forward.sh`) includes port conflict detection using `lsof`.
 
 **macOS/Linux**:
 ```bash
@@ -288,6 +351,9 @@ netstat -an | grep LISTEN
 
 # Find process using specific port
 lsof -ti:8080
+
+# Check script-managed port forwards
+./scripts/k8s-permissions_port-forward.sh status
 ```
 
 **Kill process on port**:

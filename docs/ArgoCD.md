@@ -27,14 +27,31 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 ```
 
 ### Access ArgoCD UI
+
+**Automated (Recommended):**
 ```bash
-kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Start port forward with Docker permission fix
+./scripts/k8s-permissions_port-forward.sh start
+
+# Access UI
+open http://localhost:8081
 ```
 
-Get initial admin password:
+**Manual:**
+```bash
+# Port forward (uses port 8080 instead of 8081)
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# Access UI
+open http://localhost:8080
+```
+
+**Get initial admin password:**
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
+
+**Note:** The automated script uses port 8081 to avoid conflict with Jenkins (8080)
 
 ## Basic Usage
 

@@ -50,6 +50,7 @@ CI.CD/
 │   ├── Maven.md                # Maven guide
 │   ├── SonarQube.md            # SonarQube guide
 │   ├── Grafana-Loki.md         # Grafana, Loki & Prometheus guide
+│   ├── Scripts.md              # Automation scripts documentation
 │   ├── Lab-Setup-Guide.md      # Complete lab setup
 │   ├── Project-Overview.md     # Detailed overview
 │   ├── Port-Reference.md       # All service ports and URLs
@@ -80,13 +81,29 @@ The fastest way to get started:
 # 2. Run the complete setup (takes 10-15 minutes)
 ./scripts/setup-all.sh
 
-# 3. Access the services:
+# 3. Start port forwarding and fix Docker permissions
+./scripts/k8s-permissions_port-forward.sh start
+
+# 4. Access the services:
 # - Jenkins:    http://localhost:8080
 # - Harbor:     http://localhost:8082
 # - SonarQube:  http://localhost:9000
 # - Grafana:    http://localhost:3000
 # - Prometheus: http://localhost:30090
 # - Loki:       http://localhost:31000
+# - ArgoCD:     http://localhost:8081
+```
+
+**Port Forwarding Management:**
+```bash
+# Check status of all port forwards
+./scripts/k8s-permissions_port-forward.sh status
+
+# Stop all port forwards
+./scripts/k8s-permissions_port-forward.sh stop
+
+# Restart all port forwards
+./scripts/k8s-permissions_port-forward.sh restart
 ```
 
 ### Manual Setup Steps

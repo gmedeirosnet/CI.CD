@@ -259,14 +259,27 @@ curl http://localhost:30000
 ## Troubleshooting
 
 ### Can't Connect to ArgoCD
+
+**Using automated script (recommended):**
+```bash
+# Check port forward status
+./scripts/k8s-permissions_port-forward.sh status
+
+# Restart if needed
+./scripts/k8s-permissions_port-forward.sh restart
+
+# Access ArgoCD at http://localhost:8081
+```
+
+**Manual method:**
 ```bash
 # Check if ArgoCD is running
 kubectl get pods -n argocd
 
-# Check port-forward is active
-kubectl port-forward svc/argocd-server -n argocd 8090:443
+# Start port-forward manually (uses port 8080)
+kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-# In a new terminal window
+# Access ArgoCD at http://localhost:8080
 ```
 
 ### Repository Connection Failed

@@ -179,6 +179,24 @@ docker-compose up -d
 
 ## Access
 
+### Quick Start - Automated Port Forwarding
+
+**Start all services** (includes Docker permission fix for Jenkins):
+```bash
+./scripts/k8s-permissions_port-forward.sh start
+```
+
+**Check status**:
+```bash
+./scripts/k8s-permissions_port-forward.sh status
+```
+
+**Access URLs:**
+- **Grafana**: http://localhost:3000
+- **Loki**: http://localhost:31000
+- **Prometheus**: http://localhost:30090
+- **ArgoCD**: http://localhost:8081
+
 ### Grafana Web UI
 
 **URL:** http://localhost:3000
@@ -187,12 +205,18 @@ docker-compose up -d
 - Username: `admin`
 - Password: `admin`
 
-**Port Forward (if needed):**
-```bash
-# For Loki
-kubectl port-forward -n logging svc/loki 3100:3100
+### Manual Port Forward (Alternative)
 
-# For Grafana (if using K8s deployment)
+If not using the automated script:
+
+```bash
+# Loki
+kubectl port-forward -n logging svc/loki 31000:3100
+
+# Prometheus
+kubectl port-forward -n monitoring svc/prometheus 30090:9090
+
+# Grafana (if using K8s deployment)
 kubectl port-forward -n grafana svc/grafana 3000:3000
 ```
 
@@ -427,6 +451,29 @@ prometheus_tsdb_storage_blocks_bytes
 
 ## Management Commands
 
+### Automated Management
+
+**Start/Stop Port Forwards:**
+```bash
+# Start all (Loki, Prometheus, ArgoCD)
+./scripts/k8s-permissions_port-forward.sh start
+
+# Stop all
+./scripts/k8s-permissions_port-forward.sh stop
+
+# Restart all
+./scripts/k8s-permissions_port-forward.sh restart
+
+# Check status
+./scripts/k8s-permissions_port-forward.sh status
+
+# Fix Docker permissions for Jenkins
+./scripts/k8s-permissions_port-forward.sh fix-docker
+
+# Cleanup orphaned processes
+./scripts/k8s-permissions_port-forward.sh cleanup
+```
+
 ### Loki (Kubernetes)
 
 ```bash
@@ -444,13 +491,13 @@ kubectl rollout restart daemonset/promtail -n logging
 # Scale
 kubectl scale deployment loki -n logging --replicas=2
 
-# Port forward for testing
-kubectl port-forward -n logging svc/loki 3100:3100
+# Manual port forward (alternative to automated script)
+kubectl port-forward -n logging svc/loki 31000:3100
 
 # Test Loki API
-curl http://localhost:3100/ready
-curl http://localhost:3100/metrics
-curl 'http://localhost:3100/loki/api/v1/labels'
+curl http://localhost:31000/ready
+curl http://localhost:31000/metrics
+curl 'http://localhost:31000/loki/api/v1/labels'
 ```
 
 ### Grafana (Docker)
@@ -491,8 +538,8 @@ kubectl rollout restart deployment/prometheus -n monitoring
 kubectl rollout restart deployment/kube-state-metrics -n monitoring
 kubectl rollout restart daemonset/node-exporter -n monitoring
 
-# Port forward for testing
-kubectl port-forward -n monitoring svc/prometheus 9090:9090
+# Manual port forward (alternative to automated script)
+kubectl port-forward -n monitoring svc/prometheus 30090:9090
 
 # Test Prometheus API
 curl http://localhost:30090/-/ready
