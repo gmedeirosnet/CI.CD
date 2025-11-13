@@ -159,7 +159,7 @@ start_all() {
     echo -e "${BLUE}Starting Kubernetes Port Forwards${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo ""
-
+    
     # First, fix Docker permissions if Jenkins is running
     echo -e "${BLUE}→ Checking Docker permissions...${NC}"
     if docker ps --format "{{.Names}}" | grep -q "^jenkins$" 2>/dev/null; then
@@ -257,14 +257,14 @@ fix_docker_permissions() {
     echo -e "${BLUE}Fixing Docker Socket Permissions${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo ""
-
+    
     # Check if Jenkins container exists
     if ! docker ps -a --format "{{.Names}}" | grep -q "^jenkins$"; then
         echo -e "${RED}✗ Jenkins container not found${NC}"
         echo "Please ensure Jenkins is running"
         return 1
     fi
-
+    
     # Check if Jenkins is running
     if ! docker ps --format "{{.Names}}" | grep -q "^jenkins$"; then
         echo -e "${YELLOW}⚠ Jenkins container is not running${NC}"
@@ -272,16 +272,16 @@ fix_docker_permissions() {
         docker start jenkins
         sleep 3
     fi
-
+    
     echo -e "${BLUE}→ Fixing Docker socket permissions...${NC}"
-
+    
     if docker exec -u root jenkins chmod 666 /var/run/docker.sock 2>/dev/null; then
         echo -e "${GREEN}✓ Docker socket permissions fixed${NC}"
         echo ""
         echo "Verifying Docker access..."
         if docker exec jenkins docker ps >/dev/null 2>&1; then
             echo -e "${GREEN}✓ Jenkins can access Docker${NC}"
-
+            
             # Show Docker version
             local docker_version=$(docker exec jenkins docker --version 2>/dev/null)
             echo "  $docker_version"
@@ -295,7 +295,7 @@ fix_docker_permissions() {
         echo "Try manually: docker exec -u root jenkins chmod 666 /var/run/docker.sock"
         return 1
     fi
-
+    
     echo ""
     echo -e "${GREEN}✓ Docker permissions configured${NC}"
 }
