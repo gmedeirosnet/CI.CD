@@ -20,7 +20,7 @@ This document provides a comprehensive reference for all network ports used in t
 | **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
 | **kube-state-metrics** | 8080 | - | HTTP | - | K8s object metrics |
 | **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
-| **Application** | 8000 | 8000 | HTTP | http://localhost:8000 | Demo Spring Boot app |
+| **Application** | 8001 | 8001 | HTTP | http://localhost:8001 | Demo Spring Boot app |
 | **Kind API Server** | 6443 | 6443 | HTTPS | https://127.0.0.1:6443 | Kubernetes API |
 | **Kind Dashboard** | - | 30000-32767 | HTTP | http://localhost:30xxx | K8s NodePort services |
 
@@ -263,20 +263,20 @@ Metrics Server:
 
 ```yaml
 Application Port:
-  External: 8000
-  Internal: 8000
+  External: 8001
+  Internal: 8001
   Protocol: HTTP
 
 Health Endpoint:
-  URL: http://localhost:8000/health
+  URL: http://localhost:8001/health
 
 API Endpoints:
-  Base URL: http://localhost:8000
+  Base URL: http://localhost:8001
 
 Kubernetes Service:
   Type: LoadBalancer or NodePort
-  Port: 80 -> 8000
-  TargetPort: 8000
+  Port: 80 -> 8001
+  TargetPort: 8001
 ```
 
 ---
@@ -513,7 +513,7 @@ Pod to Service:
 | Loki | http://localhost:31000/ready | ready |
 | Prometheus | http://localhost:30090/-/ready | Prometheus is Ready. |
 | Prometheus (Healthy) | http://localhost:30090/-/healthy | Prometheus is Healthy. |
-| Application | http://localhost:8000/health | 200 OK |
+| Application | http://localhost:8001/health | 200 OK |
 | ArgoCD | http://localhost:8081/healthz | 200 OK |
 | Kind API | kubectl get --raw='/healthz' | ok |
 
@@ -531,7 +531,7 @@ nc -zv localhost 8080
 telnet localhost 8080
 
 # Using curl
-curl -I http://localhost:8000
+curl -I http://localhost:8001
 
 # Using kubectl (for K8s services)
 kubectl port-forward svc/service-name 8080:80
@@ -578,7 +578,7 @@ export PROMETHEUS_URL=http://localhost:${PROMETHEUS_NODEPORT}
 export SONAR_HOST=http://localhost:${SONAR_PORT}
 
 # Application
-export APP_PORT=8000
+export APP_PORT=8001
 export APP_URL=http://localhost:${APP_PORT}
 
 # Kubernetes
@@ -609,7 +609,7 @@ kubectl port-forward -n logging svc/loki 3100:3100
 kubectl port-forward -n monitoring svc/prometheus 9090:9090
 
 # Test connectivity
-curl -v http://localhost:8000/health
+curl -v http://localhost:8001/health
 curl -v http://localhost:31000/ready
 curl -v http://localhost:30090/-/ready
 
@@ -650,7 +650,9 @@ docker ps | grep service-name
 docker port <container-name>
 
 # 3. Test from inside container
-docker exec -it <container> curl localhost:8000
+# Test from within container
+docker exec -it <container> curl localhost:8001
+```
 
 # 4. Check firewall rules
 sudo ufw status
