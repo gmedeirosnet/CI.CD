@@ -238,31 +238,69 @@ kubectl get mutatingwebhookconfigurations | grep kyverno
 
 ### Jenkins Pipeline
 
-Add policy validation to your Jenkinsfile:
+The Jenkinsfile includes an automated **Validate Kyverno Policies** stage that runs after Helm chart updates and before deployment. This stage:
 
+1. **Checks Kyverno Installation**: Verifies Kyverno is running in the cluster
+2. **Validates Policy Coverage**: Confirms policies are deployed
+3. **Generates Manifests**: Creates Kubernetes manifests from Helm templates
+4. **Runs Policy Validation**: Uses `kubectl apply --dry-run=server` to trigger Kyverno admission webhooks
+5. **Reports Violations**: Displays detailed error messages for any policy failures
+6. **Fails Build on Violations**: Prevents deployment if policies are violated
+
+**Pipeline Stage:**
 ```groovy
-stage('Validate Kubernetes Policies') {
+stage('Validate Kyverno Policies') {
     steps {
         script {
-            sh """
-                # Generate manifests from Helm chart
-                helm template cicd-demo ./helm-charts/cicd-demo \
-                  --set image.tag=${BUILD_NUMBER} \
-                  > /tmp/manifests.yaml
+            // Generates Helm templates
+            helm template cicd-demo ./helm-charts/cicd-demo \
+                --set image.tag=${IMAGE_TAG} \
+                --namespace ${NAMESPACE} > /tmp/manifests.yaml
 
-                # Validate against Kyverno policies
-                kubectl apply -f /tmp/manifests.yaml \
-                  --dry-run=server \
-                  --namespace=app-demo
-            """
+            // Validates against Kyverno policies
+            kubectl apply -f /tmp/manifests.yaml \
+                --dry-run=server \
+                --namespace=${NAMESPACE}
         }
     }
 }
 ```
 
-### ArgoCD Integration
+**Benefits:**
+- **Early Detection**: Catches policy violations before deployment
+- **Fast Feedback**: Developers know immediately if their changes violate policies
+- **Automated Enforcement**: No manual policy checks required
+- **Clear Messages**: Detailed explanations of what policies were violated and how to fix them
 
-Deploy the ArgoCD application to manage policies via GitOps:
+**Common Violations Caught:**
+- Images not from Harbor registry
+- Missing resource limits
+- Privileged containers
+- Containers running as root
+- Missing security contexts
+
+**Example Output:**
+```
+=== Running Kyverno policy validation ===
+Error from server: admission webhook "validate.kyverno.svc" denied the request:
+
+policy Deployment/cicd-demo-app for resource violation:
+
+harbor-registry-only:
+  check-registry: 'validation error: Image ''nginx:latest'' is not from Harbor.
+    Use images from: host.docker.internal:8082/cicd-demo/*'
+
+❌ POLICY VALIDATION FAILED
+
+Fix the policy violations above before deploying.
+
+Common fixes:
+  - Ensure image is from Harbor: host.docker.internal:8082/cicd-demo/*
+  - Add resource limits and requests
+  - Set securityContext with runAsNonRoot: true
+```
+
+### ArgoCD IntegrationDeploy the ArgoCD application to manage policies via GitOps:
 
 ```bash
 kubectl apply -f /Users/gutembergmedeiros/Labs/CI.CD/argocd-apps/kyverno-policies.yaml

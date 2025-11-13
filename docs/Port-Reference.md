@@ -16,6 +16,7 @@ This document provides a comprehensive reference for all network ports used in t
 | **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
 | **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |
 | **ArgoCD** | 80 | 8081 | HTTP | http://localhost:8081 | GitOps deployment UI |
+| **Kyverno** | 8000 | - | HTTP | - | Policy engine metrics |
 | **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
 | **kube-state-metrics** | 8080 | - | HTTP | - | K8s object metrics |
 | **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
@@ -321,6 +322,47 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
 **Note**: Automated script uses port 8081 to avoid conflict with Jenkins (8080)
+
+---
+
+### Kyverno
+
+```yaml
+Metrics Port:
+  Internal: 8000
+  Protocol: HTTP
+  Namespace: kyverno (Kind K8s)
+
+Webhook Server:
+  Internal Port: 9443 (HTTPS)
+
+Metrics Endpoints:
+  URL: http://kyverno-svc-metrics.kyverno.svc.cluster.local:8000/metrics
+
+  Key Metrics:
+    - kyverno_policy_rule_results_total: Policy evaluation results
+    - kyverno_admission_requests_total: Total admission requests
+    - kyverno_admission_review_duration_seconds: Request processing time
+
+Prometheus Integration:
+  ServiceMonitor: monitoring/prometheus-servicemonitor.yaml
+  Scrape Interval: 30s
+
+Policy Reports:
+  Access via kubectl:
+    - kubectl get clusterpolicyreport -A
+    - kubectl get policyreport -n app-demo
+
+Webhooks:
+  Validating: kyverno-resource-validating-webhook-cfg
+  Mutating: kyverno-resource-mutating-webhook-cfg
+```
+
+**Port Forward for Metrics** (optional):
+```bash
+kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8000:8000
+curl http://localhost:8000/metrics
+```
 
 ---
 

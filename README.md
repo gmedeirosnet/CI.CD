@@ -22,6 +22,7 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Docker** - Container platform for application packaging
 - **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
+- **Kyverno** - Kubernetes-native policy engine for security and compliance
 
 ### Code Quality & Observability
 - **SonarQube** - Code quality and security analysis
@@ -56,6 +57,17 @@ CI.CD/
 │   ├── Port-Reference.md       # All service ports and URLs
 │   ├── Troubleshooting.md      # Common issues and solutions
 │   └── StudyPlan.md            # Learning curriculum
+│
+├── k8s/                         # Kubernetes configurations
+│   ├── kyverno/                # Kyverno policy engine
+│   │   ├── README.md           # Kyverno setup and usage guide
+│   │   ├── install/            # Installation scripts and Helm values
+│   │   ├── policies/           # Policy definitions (Audit mode)
+│   │   ├── tests/              # Policy testing suite
+│   │   └── monitoring/         # Violation reports and metrics
+│   ├── grafana/                # Monitoring stack
+│   ├── prometheus/             # Metrics collection
+│   └── sample-app/             # Sample deployments
 │
 ├── plan.md                      # Execution plan
 └── README.md                    # This file
@@ -92,6 +104,11 @@ The fastest way to get started:
 # - Prometheus: http://localhost:30090
 # - Loki:       http://localhost:31000
 # - ArgoCD:     http://localhost:8081
+
+# 5. (Optional) Install Kyverno policy engine:
+cd k8s/kyverno
+./install/setup-kyverno.sh
+kubectl apply -f policies/ -R
 ```
 
 **Port Forwarding Management:**
@@ -284,6 +301,7 @@ Developer → GitHub → Jenkins → Maven → SonarQube
 - [SonarQube](docs/SonarQube.md) - Code quality
 - [Maven](docs/Maven.md) - Build automation
 - [Grafana, Loki & Prometheus](docs/Grafana-Loki.md) - Monitoring and logging
+- [Kyverno](k8s/kyverno/README.md) - Policy engine and compliance
 
 ### Learning Materials
 - [Study Plan](docs/StudyPlan.md) - DevOps learning curriculum
@@ -337,6 +355,24 @@ CI.CD/
 │   └── cicd-demo/
 │
 ├── k8s/                  # Kubernetes configurations
+│   ├── kyverno/         # Kyverno policy engine (NEW)
+│   │   ├── README.md   # Complete setup and usage guide
+│   │   ├── install/
+│   │   │   ├── kyverno-values.yaml
+│   │   │   └── setup-kyverno.sh
+│   │   ├── policies/   # All policies in Audit mode
+│   │   │   ├── 00-namespace/
+│   │   │   ├── 10-security/
+│   │   │   ├── 20-resources/
+│   │   │   ├── 30-registry/
+│   │   │   └── 40-labels/
+│   │   ├── tests/
+│   │   │   ├── valid/
+│   │   │   ├── invalid/
+│   │   │   └── run-tests.sh
+│   │   └── monitoring/
+│   │       ├── view-violations.sh
+│   │       └── prometheus-servicemonitor.yaml
 │   ├── grafana/         # Grafana, Loki & Promtail setup
 │   │   ├── docker-compose.yml
 │   │   ├── setup-grafana-docker.sh
@@ -399,6 +435,8 @@ After completing this lab, you will be able to:
 - Aggregate and query logs with Loki
 - Visualize data with Grafana dashboards
 - Use Helm for Kubernetes package management
+- Implement policy-as-code with Kyverno
+- Enforce security and compliance policies
 - Manage infrastructure as code
 - Troubleshoot containerized applications
 - Follow DevOps best practices and security standards
