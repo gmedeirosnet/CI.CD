@@ -141,7 +141,7 @@ show_status() {
         if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
             local pid=$(cat "$pid_file")
             echo -e "${GREEN}✓ Running${NC} (PID: $pid, localhost:$local_port → $namespace/$service:$remote_port)"
-            ((active_count++))
+            active_count=$((active_count + 1))
         else
             echo -e "${RED}✗ Stopped${NC}"
             [ -f "$pid_file" ] && rm -f "$pid_file"
@@ -164,9 +164,9 @@ start_all() {
 
     for name in ${(k)PORT_FORWARDS}; do
         if start_port_forward "$name" "${PORT_FORWARDS[$name]}"; then
-            ((success_count++))
+            success_count=$((success_count + 1))
         else
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
     done
 
