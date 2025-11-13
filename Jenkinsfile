@@ -258,6 +258,120 @@ pipeline {
             }
         }
 
+        stage('Validate Kyverno Policies') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Validating Kubernetes manifests against Kyverno policies ==="
+
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        # Check if Kind cluster exists
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping Kyverno validation."
+                            exit 0
+                        fi
+
+                        # Check if Kyverno is installed
+                        if ! docker exec \${KIND_CLUSTER}-control-plane kubectl get ns kyverno &>/dev/null; then
+                            echo "WARNING: Kyverno not installed. Skipping policy validation."
+                            echo "To install Kyverno: cd k8s/kyverno && ./install/setup-kyverno.sh"
+                            exit 0
+                        fi
+
+                        echo "✓ Kyverno is installed"
+
+                        # Check if policies are deployed
+                        POLICY_COUNT=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get clusterpolicies --no-headers 2>/dev/null | wc -l | tr -d ' ')
+                        echo "Found \${POLICY_COUNT} ClusterPolicies"
+
+                        if [ "\${POLICY_COUNT}" -eq 0 ]; then
+                            echo "WARNING: No Kyverno policies found. Skipping validation."
+                            echo "To deploy policies: kubectl apply -f k8s/kyverno/policies/ -R"
+                            exit 0
+                        fi
+
+                        # Generate Helm templates
+                        echo "Generating Helm templates..."
+                        helm template cicd-demo ./helm-charts/cicd-demo \
+                            --set image.tag=${IMAGE_TAG} \
+                            --namespace ${NAMESPACE} > /tmp/manifests-${BUILD_NUMBER}.yaml
+
+                        echo "Generated manifests:"
+                        cat /tmp/manifests-${BUILD_NUMBER}.yaml
+
+                        # Validate against Kyverno policies using dry-run
+                        echo ""
+                        echo "=== Running Kyverno policy validation ==="
+
+                        VALIDATION_FAILED=false
+
+                        # Copy manifests to Kind control plane
+                        docker cp /tmp/manifests-${BUILD_NUMBER}.yaml \${KIND_CLUSTER}-control-plane:/tmp/manifests.yaml
+
+                        # Run kubectl apply with dry-run to trigger Kyverno validation
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl apply -f /tmp/manifests.yaml \
+                            --dry-run=server \
+                            --namespace=${NAMESPACE} 2>&1 | tee /tmp/kyverno-validation-${BUILD_NUMBER}.log; then
+                            echo ""
+                            echo "✅ All Kyverno policy validations passed!"
+                        else
+                            echo ""
+                            echo "❌ Kyverno policy validation failed!"
+                            echo ""
+                            echo "Policy violations detected. Review the errors above."
+                            echo ""
+
+                            # Show validation results
+                            cat /tmp/kyverno-validation-${BUILD_NUMBER}.log
+
+                            VALIDATION_FAILED=true
+                        fi
+
+                        # Check for policy violations in the output
+                        if grep -q "violates\\|denied\\|forbidden" /tmp/kyverno-validation-${BUILD_NUMBER}.log; then
+                            echo ""
+                            echo "Policy violations summary:"
+                            grep -i "violates\\|denied\\|forbidden" /tmp/kyverno-validation-${BUILD_NUMBER}.log || true
+                            VALIDATION_FAILED=true
+                        fi
+
+                        # Clean up
+                        rm -f /tmp/manifests-${BUILD_NUMBER}.yaml /tmp/kyverno-validation-${BUILD_NUMBER}.log
+                        docker exec \${KIND_CLUSTER}-control-plane rm -f /tmp/manifests.yaml
+
+                        if [ "\${VALIDATION_FAILED}" = "true" ]; then
+                            echo ""
+                            echo "================================"
+                            echo "❌ POLICY VALIDATION FAILED"
+                            echo "================================"
+                            echo ""
+                            echo "Fix the policy violations above before deploying."
+                            echo ""
+                            echo "Common fixes:"
+                            echo "  - Ensure image is from Harbor: host.docker.internal:8082/cicd-demo/*"
+                            echo "  - Add resource limits and requests"
+                            echo "  - Set securityContext with runAsNonRoot: true"
+                            echo "  - Remove privileged: true from securityContext"
+                            echo ""
+                            echo "View policy details: kubectl describe clusterpolicy <policy-name>"
+                            echo "View policy reports: kubectl get policyreport -n ${NAMESPACE}"
+                            echo ""
+                            exit 1
+                        fi
+
+                        echo ""
+                        echo "================================"
+                        echo "✅ KYVERNO VALIDATION PASSED"
+                        echo "================================"
+                        echo ""
+                        echo "All policies satisfied. Proceeding with deployment..."
+                    """
+                }
+            }
+        }
+
         stage('Prepare Namespace') {
             steps {
                 script {

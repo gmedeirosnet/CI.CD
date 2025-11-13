@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+  annotations:
+    policies.kyverno.io/title: Add Default Labels
+    policies.kyverno.io/category: Labels
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Deployment, StatefulSet, DaemonSet
+    policies.kyverno.io/description: >-
+      Automatically inject standard labels to all workloads for
+      tracking, monitoring, and management purposes. Labels include
+      managed-by, environment, and cluster identification.
+spec:
+  background: false
+  rules:
+  - name: add-lab-labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+          - StatefulSet
+          - DaemonSet
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - kyverno
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            +(managed-by): "kyverno"
+            +(environment): "cicd-lab"
+            +(cluster): "kind-cicd-demo"
+        spec:
+          template:
+            metadata:
+              labels:
+                +(managed-by): "kyverno"
+                +(environment): "cicd-lab"
+                +(cluster): "kind-cicd-demo"

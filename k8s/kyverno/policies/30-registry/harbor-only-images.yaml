@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: harbor-registry-only
+  annotations:
+    policies.kyverno.io/title: Enforce Harbor Registry
+    policies.kyverno.io/category: Registry
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      All container images must come from the lab Harbor registry
+      at host.docker.internal:8082. This ensures all images are
+      scanned for vulnerabilities and approved.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: check-registry
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - kube-public
+          - kube-node-lease
+          - kyverno
+          - argocd
+          - monitoring
+          - logging
+    validate:
+      message: >-
+        Image '{{ request.object.spec.containers[0].image }}' is not from Harbor.
+        Use images from: host.docker.internal:8082/cicd-demo/*
+
+        Example: host.docker.internal:8082/cicd-demo/app:latest
+      pattern:
+        spec:
+          containers:
+          - image: "host.docker.internal:8082/cicd-demo/*"
+          =(initContainers):
+          - image: "host.docker.internal:8082/cicd-demo/*"

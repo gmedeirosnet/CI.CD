@@ -42,10 +42,16 @@ Comprehensive guides for each tool:
 - **Docker**: Container platform for application packaging
 - **Kind (K8s in Docker)**: Local Kubernetes clusters for development and testing
 - **Helm Charts**: Kubernetes application package manager
+- **Kyverno**: Kubernetes-native policy engine for security and compliance
 
 ### 4. Configuration and Analysis
 - **Ansible**: Agentless automation and configuration management
 - **SonarQube**: Code quality and security analysis
+
+### 5. Observability
+- **Grafana**: Unified visualization and monitoring dashboard
+- **Loki**: Log aggregation and querying system
+- **Prometheus**: Metrics collection and time-series database
 
 ## Learning Path
 
@@ -98,13 +104,16 @@ Comprehensive guides for each tool:
        │
        ├─► Maven Build ────► Unit Tests
        │
-       ├─► SonarQube Analysis ────► Quality Gate
+       ├─► SonarQube Analysis ──► Quality Gate
        │
-       ├─► Docker Build ────► Harbor Push
+       ├─► Docker Build & Tag ──► Harbor Push (with Trivy Scan)
        │
-       ├─► Helm Package ────► Chart Repository
+       ├─► Helm Package ──► Load to Kind
        │
-       ├─► ArgoCD Sync ────► Kind K8s Deploy
+       └─► ArgoCD Sync ──► Kyverno Policy Check ──► Kind K8s Deploy
+                                     │
+                                     ├─► Validate: Registry, Resources, Security
+                                     └─► Mutate: Add Labels, SecurityContext
        │
        └─► Ansible Configure ────► Post-Deploy Tasks
                 │

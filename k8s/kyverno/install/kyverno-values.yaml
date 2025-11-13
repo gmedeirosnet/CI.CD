@@ -1,0 +1,81 @@
+# Kyverno Helm Chart Values for Kind Cluster
+# Optimized for local development with limited resources
+
+# Single replica for local dev environment
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kyverno/kyverno
+  tag: v1.11.0
+  pullPolicy: IfNotPresent
+
+# Resource constraints for Kind cluster
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Background controller for scanning existing resources
+backgroundController:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Reports controller for policy reports
+reportsController:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Exclude kyverno namespace from policies
+excludeKyvernoNamespace: true
+
+# Webhook configuration
+webhooksCleanup:
+  enabled: true
+  image:
+    pullPolicy: IfNotPresent
+
+# Generate success events for auditing
+generateSuccessEvents: true
+
+# Admission controller configuration
+admissionController:
+  replicas: 1
+  container:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# Webhook timeout
+webhookTimeoutSeconds: 10
+
+# Background scan interval (reduce for performance)
+backgroundScanInterval: 10m
+
+# Metrics service for Prometheus scraping
+metricsService:
+  create: true
+  type: ClusterIP
+  port: 8000
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"

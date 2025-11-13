@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: namespace-requirements
+  annotations:
+    policies.kyverno.io/title: Namespace Requirements
+    policies.kyverno.io/category: Namespaces
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Namespaces must have 'team' and 'purpose' labels for proper
+      organization and tracking. This helps with cost allocation,
+      access control, and resource management.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: require-namespace-labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          names:
+          - kube-*
+          - default
+          - kyverno
+          - argocd
+          - monitoring
+          - logging
+    validate:
+      message: >-
+        Namespaces must have 'team' and 'purpose' labels.
+
+        Example:
+          metadata:
+            labels:
+              team: "devops"
+              purpose: "application"
+              environment: "demo"
+      pattern:
+        metadata:
+          labels:
+            team: "?*"
+            purpose: "?*"
