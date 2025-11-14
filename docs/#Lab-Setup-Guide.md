@@ -1003,15 +1003,373 @@ cd k8s/grafana && docker-compose restart
 
 **For detailed documentation, see:** [Grafana-Loki.md](Grafana-Loki.md)
 
-## Phase 6: Helm Charts Creation
+## Phase 6: Kyverno Policy Engine Setup
 
-### 6.1 Create Helm Chart
+### 6.1 Overview
+
+Kyverno is a Kubernetes-native policy engine that validates, mutates, and generates configurations. It ensures compliance with organizational standards and security best practices.
+
+**Key Features:**
+- **Policy-as-Code**: Define policies in YAML
+- **Audit Mode**: Log violations without blocking deployments (safe for learning)
+- **Validation**: Check resources against defined rules
+- **Mutation**: Automatically add labels, annotations, or configurations
+- **Reporting**: Generate compliance reports
+
+**Policy Categories Implemented:**
+1. **Namespace Policies** - Require labels for organization tracking
+2. **Security Policies** - Block privileged containers, enforce non-root users
+3. **Resource Policies** - Mandate CPU/memory limits to prevent resource exhaustion
+4. **Registry Policies** - Ensure all images come from Harbor registry
+5. **Label Management** - Auto-inject standard labels for monitoring
+
+### 6.2 Install Kyverno
+
+```bash
+# Navigate to Kyverno directory
+cd k8s/kyverno
+
+# Run installation script
+chmod +x install/setup-kyverno.sh
+./install/setup-kyverno.sh
+```
+
+**What the script does:**
+1. Checks prerequisites (Helm, kubectl, cluster connectivity)
+2. Adds Kyverno Helm repository
+3. Installs Kyverno with Kind-optimized settings:
+   - Single replica (suitable for lab environment)
+   - Reduced resource requirements
+   - Monitoring enabled for Prometheus integration
+4. Waits for Kyverno pods to be ready
+5. Verifies installation
+
+**Verify installation:**
+```bash
+# Check Kyverno pods are running
+kubectl get pods -n kyverno
+
+# Expected output:
+# NAME                                      READY   STATUS    RESTARTS   AGE
+# kyverno-admission-controller-xxxxx       1/1     Running   0          2m
+# kyverno-background-controller-xxxxx      1/1     Running   0          2m
+# kyverno-cleanup-controller-xxxxx         1/1     Running   0          2m
+# kyverno-reports-controller-xxxxx         1/1     Running   0          2m
+
+# Check Kyverno version
+kubectl get deployment -n kyverno kyverno-admission-controller \
+  -o jsonpath='{.spec.template.spec.containers[0].image}'
+```
+
+### 6.3 Deploy Policies
+
+All policies are deployed in **Audit mode**, meaning violations are logged but deployments are NOT blocked. This is ideal for learning and gradual enforcement.
+
+```bash
+# Deploy all policies (from k8s/kyverno directory)
+kubectl apply -f policies/ -R
+
+# Verify policies are installed
+kubectl get clusterpolicies
+
+# Expected output shows 6 policies:
+# NAME                           BACKGROUND   VALIDATE ACTION   READY
+# add-default-labels            true         Audit             true
+# disallow-privileged           true         Audit             true
+# harbor-registry-only          true         Audit             true
+# namespace-requirements        true         Audit             true
+# require-non-root-user         true         Audit             true
+# require-resource-limits       true         Audit             true
+```
+
+**Policy Details:**
+
+#### 1. Namespace Requirements (`00-namespace/`)
+```bash
+kubectl describe clusterpolicy namespace-requirements
+```
+- Requires `team` and `purpose` labels on all namespaces
+- Excludes system namespaces (kube-system, kyverno, argocd, etc.)
+- Helps with organization and cost tracking
+
+#### 2. Security Policies (`10-security/`)
+
+**Disallow Privileged Containers:**
+```bash
+kubectl describe clusterpolicy disallow-privileged
+```
+- Blocks containers with `privileged: true`
+- Prevents access to all Linux capabilities
+- Critical for multi-tenant security
+
+**Require Non-Root User:**
+```bash
+kubectl describe clusterpolicy require-non-root-user
+```
+- Enforces `runAsNonRoot: true` in securityContext
+- Reduces attack surface
+- Containers must run as non-root user
+
+**Require Read-Only Root Filesystem:**
+- Requires `readOnlyRootFilesystem: true`
+- Prevents malicious file writes
+- Applications needing write access should use volumes
+
+#### 3. Resource Limits (`20-resources/`)
+```bash
+kubectl describe clusterpolicy require-resource-limits
+```
+- Mandates CPU and memory requests and limits on all containers
+- Prevents resource exhaustion (noisy neighbor problem)
+- Ensures fair resource allocation in shared cluster
+
+Example compliant configuration:
+```yaml
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+```
+
+#### 4. Harbor Registry Only (`30-registry/`)
+```bash
+kubectl describe clusterpolicy harbor-registry-only
+```
+- Ensures all images come from Harbor registry: `host.docker.internal:8082/cicd-demo/*`
+- Guarantees images are vulnerability-scanned
+- Prevents use of unverified public images
+- Excludes system namespaces that need external images
+
+#### 5. Default Labels (`40-labels/`)
+```bash
+kubectl describe clusterpolicy add-default-labels
+```
+- Automatically injects standard labels on pods:
+  - `managed-by: kyverno`
+  - `environment: lab`
+  - `compliance: enforced`
+- Helps with monitoring and tracking
+- Mutation policy (modifies resources automatically)
+
+### 6.4 Test Policies
+
+The testing suite validates that policies work correctly with both compliant and non-compliant manifests.
+
+```bash
+# Run comprehensive test suite
+chmod +x tests/run-tests.sh
+./tests/run-tests.sh
+```
+
+**What the test does:**
+
+1. **Valid Manifests** (should pass):
+   - `compliant-pod.yaml` - Pod with all requirements met
+   - `compliant-deployment.yaml` - Deployment with proper configuration
+   - These create resources successfully and get mutated labels
+
+2. **Invalid Manifests** (should show violations):
+   - `wrong-registry.yaml` - Image from docker.io instead of Harbor
+   - `no-resource-limits.yaml` - Missing CPU/memory limits
+   - `privileged-pod.yaml` - Privileged container (security risk)
+   - `runs-as-root.yaml` - Running as root user
+   - These are blocked in dry-run, violations logged in audit mode
+
+**Expected output:**
+```
+Testing Valid Manifests (should be ADMITTED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ compliant-pod.yaml          ADMITTED
+✓ compliant-deployment.yaml   ADMITTED
+
+Testing Invalid Manifests (should show VIOLATIONS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ wrong-registry.yaml          VIOLATION DETECTED
+✓ no-resource-limits.yaml      VIOLATION DETECTED
+✓ privileged-pod.yaml          VIOLATION DETECTED
+✓ runs-as-root.yaml            VIOLATION DETECTED
+
+Summary: 2 passed, 4 violations detected (as expected)
+```
+
+### 6.5 View Policy Violations
+
+```bash
+# Use monitoring script
+chmod +x monitoring/view-violations.sh
+./monitoring/view-violations.sh
+```
+
+**What this shows:**
+- Cluster-wide policy reports
+- Namespace-specific violations
+- Detailed violation information per resource
+- Pass/fail counts
+
+**Manual inspection:**
+```bash
+# View all policy reports across namespaces
+kubectl get policyreport -A
+
+# View report for specific namespace
+kubectl get policyreport -n app-demo
+
+# Detailed violation information
+kubectl describe policyreport -n app-demo
+
+# View cluster-wide reports
+kubectl get clusterpolicyreport
+
+# Check specific policy results
+kubectl get clusterpolicyreport -o yaml | grep -A 10 "harbor-registry-only"
+```
+
+**Example violation report:**
+```yaml
+results:
+- message: "Image 'nginx:latest' is not from Harbor. Use images from: host.docker.internal:8082/cicd-demo/*"
+  policy: harbor-registry-only
+  result: fail
+  scored: true
+  source: kyverno
+  timestamp:
+    seconds: 1699999999
+```
+
+### 6.6 Integration with CI/CD Pipeline
+
+Kyverno integrates seamlessly with your Jenkins pipeline:
+
+1. **Image Registry Check**: Harbor policy ensures Jenkins pushes images to Harbor
+2. **Resource Limits**: Helm charts must include resource specifications
+3. **Security Context**: Deployments must follow security best practices
+4. **Labels**: Auto-injected labels help with monitoring in Grafana/Prometheus
+
+**Update Helm chart to be compliant:**
+```yaml
+# helm-charts/cicd-demo/values.yaml
+image:
+  repository: host.docker.internal:8082/cicd-demo/app
+  # ... other settings
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+```
+
+### 6.7 Switching from Audit to Enforce Mode
+
+⚠️ **Important**: Keep policies in Audit mode while learning. Switch to Enforce mode only when ready for production-like constraints.
+
+**To enforce a specific policy:**
+```bash
+# Edit policy
+kubectl edit clusterpolicy harbor-registry-only
+
+# Change validationFailureAction from Audit to Enforce
+spec:
+  validationFailureAction: Enforce  # Changed from Audit
+```
+
+**To enforce all policies:**
+```bash
+# Update all policies at once
+kubectl get clusterpolicy -o name | xargs -I {} kubectl patch {} --type='merge' -p '{"spec":{"validationFailureAction":"Enforce"}}'
+
+# Verify
+kubectl get clusterpolicy -o custom-columns=NAME:.metadata.name,ACTION:.spec.validationFailureAction
+```
+
+**In Enforce mode:**
+- Non-compliant resources are **blocked** from being created
+- Existing resources are not affected (background scanning continues)
+- Use for production environments after testing
+
+### 6.8 Monitoring with Prometheus
+
+Kyverno exports metrics that can be scraped by Prometheus:
+
+```bash
+# Apply ServiceMonitor for Prometheus
+kubectl apply -f monitoring/prometheus-servicemonitor.yaml
+
+# Verify metrics endpoint
+kubectl port-forward -n kyverno svc/kyverno-svc-metrics 8000:8000 &
+curl http://localhost:8000/metrics | grep kyverno
+```
+
+**Key metrics:**
+- `kyverno_policy_results_total` - Policy validation results
+- `kyverno_policy_execution_duration_seconds` - Policy execution time
+- `kyverno_admission_requests_total` - Admission requests processed
+
+### 6.9 Troubleshooting
+
+#### Policies Not Working
+```bash
+# Check Kyverno admission controller logs
+kubectl logs -n kyverno deployment/kyverno-admission-controller --tail=50
+
+# Check policy status
+kubectl get clusterpolicy -o wide
+
+# Verify webhook is configured
+kubectl get validatingwebhookconfigurations | grep kyverno
+```
+
+#### Policies Not Reporting Violations
+```bash
+# Check reports controller
+kubectl logs -n kyverno deployment/kyverno-reports-controller --tail=50
+
+# Force report generation
+kubectl delete policyreport -n app-demo --all
+# Reports will be regenerated automatically
+
+# Check CRDs are installed
+kubectl get crd | grep kyverno
+```
+
+#### Namespace Exclusions Not Working
+```bash
+# Verify namespace labels
+kubectl get namespace --show-labels
+
+# Check policy exclusion rules
+kubectl get clusterpolicy harbor-registry-only -o yaml | grep -A 20 "exclude:"
+```
+
+**Important Notes:**
+- Kyverno policies are evaluated at admission time (when resources are created/updated)
+- Background scanning checks existing resources periodically
+- System namespaces are excluded to avoid breaking core components
+- Mutation policies (like label injection) modify resources before they're stored
+- Policy reports are generated asynchronously and may take a few seconds to appear
+
+**For detailed documentation, see:** [k8s/kyverno/README.md](../k8s/kyverno/README.md)
+
+## Phase 7: Helm Charts Creation
+
+### 7.1 Create Helm Chart
 ```bash
 cd helm-charts
 helm create cicd-demo
 ```
 
-### 6.2 Configure Values for Kind Deployment
+### 7.2 Configure Values for Kind Deployment
 
 **Important**: For Kind on Mac Docker Desktop, configure Helm to use pre-loaded images:
 
@@ -1048,9 +1406,9 @@ EOF
 helm package cicd-demo
 ```
 
-## Phase 7: Complete Jenkins Pipeline
+## Phase 8: Complete Jenkins Pipeline
 
-### 7.1 Configure Jenkins Credentials
+### 8.1 Configure Jenkins Credentials
 1. Manage Jenkins > Credentials
 2. Add credentials:
    - **ArgoCD**: username + password (ID: `argocd-credentials`) - See Section 4.2
@@ -1059,7 +1417,7 @@ helm package cicd-demo
    - **SonarQube**: secret text (token) (ID: `sonarqube-token`) - See Section 2.2
    - **Kubeconfig**: secret file (optional, if using external cluster)
 
-### 7.2 Create Jenkinsfile
+### 8.2 Create Jenkinsfile
 ```groovy
 pipeline {
     agent any
@@ -1209,9 +1567,9 @@ pipeline {
 }
 ```
 
-## Phase 8: Testing the Pipeline
+## Phase 9: Testing the Pipeline
 
-### 8.1 Create Jenkins Job
+### 9.1 Create Jenkins Job
 1. New Item > Pipeline
 2. Name: cicd-demo
 3. Pipeline > Definition: Pipeline script from SCM
@@ -1220,7 +1578,7 @@ pipeline {
 6. Script Path: Jenkinsfile
 7. Save
 
-### 8.2 Trigger Build
+### 9.2 Trigger Build
 ```bash
 # Make a code change
 echo "// Test change" >> src/main/java/com/example/Application.java
@@ -1231,7 +1589,7 @@ git push origin main
 # Or manually trigger in Jenkins UI
 ```
 
-### 8.3 Monitor Deployment
+### 9.3 Monitor Deployment
 ```bash
 # Watch Jenkins build
 # Check SonarQube analysis at http://localhost:9000
@@ -1244,9 +1602,9 @@ kubectl get pods -w
 kubectl get svc
 ```
 
-## Phase 9: Monitoring and Validation
+## Phase 10: Monitoring and Validation
 
-### 9.1 Verify Each Component
+### 10.1 Verify Each Component
 ```bash
 # Jenkins
 curl http://localhost:8080
@@ -1272,7 +1630,7 @@ kubectl get svc
 kubectl logs <pod-name>
 ```
 
-### 9.2 Access Application and Logs
+### 10.2 Access Application and Logs
 ```bash
 # Get LoadBalancer URL
 kubectl get svc -o wide
@@ -1291,9 +1649,9 @@ curl http://<EXTERNAL-IP>:80
 kubectl logs -f deployment/cicd-demo -n app-demo
 ```
 
-## Phase 10: Cleanup
+## Phase 11: Cleanup
 
-### 10.1 Remove Resources
+### 11.1 Remove Resources
 ```bash
 # Delete ArgoCD application
 argocd app delete cicd-demo
