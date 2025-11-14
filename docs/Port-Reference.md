@@ -7,22 +7,22 @@ This document provides a comprehensive reference for all network ports used in t
 
 | Service | Internal Port | External Port | Protocol | Access URL | Purpose |
 |---------|--------------|---------------|----------|------------|---------|
-| **Jenkins** | 8080 | 8080 | HTTP | http://localhost:8080 | CI/CD orchestration |
-| **Jenkins (Agent)** | 50000 | 50000 | TCP | - | Agent communication |
+| **Application** | 8001 | 8001 | HTTP | http://localhost:8001 | Demo Spring Boot app |
+| **ArgoCD** | 80 | 8090 | HTTP | http://localhost:8090 | GitOps deployment UI |
+| **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Harbor (HTTP)** | 80 | 8082 | HTTP | http://localhost:8082 | Container registry web UI |
 | **Harbor (HTTPS)** | 443 | 8443 | HTTPS | https://localhost:8443 | Secure container registry |
-| **SonarQube** | 9000 | 8090 | HTTP | http://localhost:8090 | Code quality analysis |
-| **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
-| **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |
-| **ArgoCD** | 80 | 8081 | HTTP | http://localhost:8081 | GitOps deployment UI |
 | **Kyverno** | 8000 | - | HTTP | - | Policy engine metrics |
-| **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
 | **kube-state-metrics** | 8080 | - | HTTP | - | K8s object metrics |
-| **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
-| **Application** | 8001 | 8001 | HTTP | http://localhost:8001 | Demo Spring Boot app |
 | **Kind API Server** | 6443 | 6443 | HTTPS | https://127.0.0.1:6443 | Kubernetes API |
 | **Kind Dashboard** | - | 30000-32767 | HTTP | http://localhost:30xxx | K8s NodePort services |
+| **node-exporter** | 9100 | - | HTTP | - | Node/system metrics |
+| **Jenkins** | 8080 | 8080 | HTTP | http://localhost:8080 | CI/CD orchestration |
+| **Jenkins (Agent)** | 50000 | 50000 | TCP | - | Agent communication |
+| **Promtail** | 9080 | - | HTTP | - | Log collector metrics |
+| **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |
+| **SonarQube** | 9000 | 8090 | HTTP | http://localhost:8090 | Code quality analysis |
 
 ## Automated Port Forwarding
 
