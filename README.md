@@ -41,6 +41,10 @@ CI.CD/
 │   ├── modes.json              # Learning modes
 │   └── documentation.json      # Documentation structure
 │
+├── .env.template               # Environment variables template (copy to .env)
+├── .env                        # Local environment config (DO NOT COMMIT)
+├── .gitignore                  # Git ignore rules
+│
 ├── docs/                        # Comprehensive documentation
 │   ├── ArgoCD.md               # ArgoCD guide
 │   ├── Kind-K8s.md             # Kind (K8s in Docker) guide
@@ -103,7 +107,7 @@ The fastest way to get started:
 # - Grafana:    http://localhost:3000
 # - Prometheus: http://localhost:30090
 # - Loki:       http://localhost:31000
-# - ArgoCD:     http://localhost:8081
+# - ArgoCD:     https://localhost:8090
 
 # 5. (Optional) Install Kyverno policy engine:
 cd k8s/kyverno
@@ -134,8 +138,19 @@ If you prefer step-by-step setup:
 
 2. **Configure Environment**
    ```bash
+   # Copy environment template and configure your credentials
    cp .env.template .env
-   # Edit .env with your GitHub token and other credentials
+
+   # Edit .env with your values:
+   # - GitHub username and personal access token
+   # - Harbor registry credentials
+   # - Jenkins admin password
+   # - SonarQube token
+   # - ArgoCD admin password
+   # - Other service credentials
+
+   # IMPORTANT: Never commit .env to version control
+   nano .env  # or use your preferred editor
    ```
 
 3. **Create Kind Cluster**
@@ -445,9 +460,33 @@ After completing this lab, you will be able to:
 
 - All AI configurations are in JSON format in `/instructions` directory
 - Documentation files are in `/docs` directory only
+- Environment variables are configured in `.env` (copy from `.env.template`)
+- **Never commit `.env` to version control** - contains sensitive credentials
 - No emojis in documentation
 - Git commands require explicit permission
 - Follow the plan.md for structured execution
+
+## Environment Configuration
+
+The repository uses environment variables for configuration management:
+
+1. **`.env.template`** - Template file tracked in git with all required variables
+2. **`.env`** - Local configuration file (gitignored) with your actual credentials
+
+**Setup:**
+```bash
+cp .env.template .env
+# Edit .env with your credentials
+```
+
+**Key Variables:**
+- GitHub credentials and repository info
+- Harbor registry and robot account
+- Jenkins, SonarQube, ArgoCD passwords
+- Service port mappings
+- Kubernetes and Kind cluster config
+
+See [Lab Setup Guide](docs/#Lab-Setup-Guide.md#11-configure-environment-variables) for detailed configuration instructions.
 
 ## Contributing
 

@@ -268,7 +268,7 @@ curl http://localhost:30000
 # Restart if needed
 ./scripts/k8s-permissions_port-forward.sh restart
 
-# Access ArgoCD at http://localhost:8081
+# Access ArgoCD at https://localhost:8090
 ```
 
 **Manual method:**
@@ -276,8 +276,9 @@ curl http://localhost:30000
 # Check if ArgoCD is running
 kubectl get pods -n argocd
 
-# Start port-forward manually (uses port 8080)
-kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Start port-forward manually (use 8081 to avoid Jenkins conflict on 8080)
+kubectl port-forward svc/argocd-server -n argocd 8081:443
+# Access at https://localhost:8081
 
 # Access ArgoCD at http://localhost:8080
 ```

@@ -33,7 +33,7 @@ This document describes the automation scripts available in the CI/CD lab projec
 |---------|-----------|------------|----------|-----|
 | Loki | logging | 31000 | 3100 | http://localhost:31000 |
 | Prometheus | monitoring | 30090 | 9090 | http://localhost:30090 |
-| ArgoCD | argocd | 8081 | 80 | http://localhost:8081 |
+| ArgoCD | argocd | 8090 | 443 | https://localhost:8090 |
 
 **Usage:**
 
@@ -74,16 +74,16 @@ Starting port forwards...
 → Starting prometheus (monitoring:prometheus:30090→9090)
   ✓ Started prometheus with PID 91016
 
-→ Starting argocd (argocd:argocd-server:8081→80)
+→ Starting argocd (argocd:argocd-server:8090→443)
   ✓ Started argocd with PID 91038
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Port Forward Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✓ loki (PID 91001) - logging:loki:31000→3100
-✓ prometheus (PID 91016) - monitoring:prometheus:30090→9090
-✓ argocd (PID 91038) - argocd:argocd-server:8081→80
+✓ loki (PID 91035) - logging:loki:31000→3100
+✓ prometheus (PID 91036) - monitoring:prometheus:30090→9090
+✓ argocd (PID 91038) - argocd:argocd-server:8090→443
 
 Total: 3 active port forwards
 ```

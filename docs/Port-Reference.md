@@ -8,7 +8,7 @@ This document provides a comprehensive reference for all network ports used in t
 | Service | Internal Port | External Port | Protocol | Access URL | Purpose |
 |---------|--------------|---------------|----------|------------|---------|
 | **Application** | 8001 | 8001 | HTTP | http://localhost:8001 | Demo Spring Boot app |
-| **ArgoCD** | 80 | 8090 | HTTP | http://localhost:8090 | GitOps deployment UI |
+| **ArgoCD** | 443 | 8090 | HTTPS | https://localhost:8090 | GitOps deployment UI |
 | **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Harbor (HTTP)** | 80 | 8082 | HTTP | http://localhost:8082 | Container registry web UI |
 | **Harbor (HTTPS)** | 443 | 8443 | HTTPS | https://localhost:8443 | Secure container registry |
@@ -60,7 +60,9 @@ The lab includes an automated script for managing Kubernetes port forwards and D
 **Managed Services**:
 - **Loki**: localhost:31000 → logging/loki:3100
 - **Prometheus**: localhost:30090 → monitoring/prometheus:9090
-- **ArgoCD**: localhost:8081 → argocd/argocd-server:80
+- **ArgoCD**: localhost:8090 → argocd/argocd-server:443
+
+**Note**: When using automated script, ArgoCD is on 8090. For manual port-forward, use 8081 to avoid Jenkins conflict.
 
 **PID Files**: Stored in `/tmp/k8s-port-forward/*.pid`
 
@@ -123,14 +125,19 @@ Environment Variables:
 
 ```yaml
 Port:
-  External: 9000
+  External: 8090
   Internal: 9000
   Protocol: HTTP
-  URL: http://localhost:9000
+  URL: http://localhost:8090
 
 Environment Variables:
-  SONAR_HOST: http://localhost:9000
-  SONAR_PORT: 9000
+  SONAR_HOST: http://localhost:8090
+  SONAR_PORT: 8090
+
+Note:
+  - External access uses port 8090 to avoid conflicts
+  - Internal container port remains 9000
+  - Jenkins should use container name: http://sonarqube:9000
 
 Database:
   Internal Port: 5432 (PostgreSQL)
@@ -223,7 +230,10 @@ kubectl port-forward -n logging svc/loki 31000:3100
 kubectl port-forward -n monitoring svc/prometheus 30090:9090
 
 # ArgoCD (from K8s to host)
-kubectl port-forward -n argocd svc/argocd-server 8081:80
+# Manual Port Forward Examples
+# Note: Use 8081 for manual setup (8080 conflicts with Jenkins)
+# Automated script uses 8090
+kubectl port-forward -n argocd svc/argocd-server 8081:443
 
 # Grafana (if in K8s)
 kubectl port-forward -n grafana svc/grafana 3000:3000
@@ -392,7 +402,7 @@ pkill -f "port-forward.*kyverno-svc-metrics"
 
 | Port | Common Conflicts | Solution |
 |------|-----------------|----------|
-| 8080 | Jenkins, Application, Tomcat | Use different external ports (ArgoCD→8081) |
+| 8080 | Jenkins, Application, Tomcat | Use different external ports (ArgoCD→8090) |
 | 9000 | SonarQube, Other applications | Change SonarQube port |
 | 8082 | Harbor, Other services | Modify Harbor configuration |
 | 3000 | Node.js apps, Grafana, Dev servers | Use alternative port (3001) |
@@ -524,11 +534,11 @@ Pod to Service:
 
 ## Health Check Endpoints
 
-| Service | Health Check URL | Expected Response |
-|---------|-----------------|-------------------|
+| Service | Endpoint | Expected Response |
+|---------|----------|-------------------|
 | Jenkins | http://localhost:8080/login | 200 OK |
 | Harbor | http://localhost:8082/api/v2.0/health | 200 OK |
-| SonarQube | http://localhost:9000/api/system/health | 200 OK |
+| SonarQube | http://localhost:8090/api/system/health | 200 OK |
 | Grafana | http://localhost:3000/api/health | 200 OK |
 | Loki | http://localhost:31000/ready | ready |
 | Prometheus | http://localhost:30090/-/ready | Prometheus is Ready. |

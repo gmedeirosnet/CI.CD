@@ -195,7 +195,7 @@ docker-compose up -d
 - **Grafana**: http://localhost:3000
 - **Loki**: http://localhost:31000
 - **Prometheus**: http://localhost:30090
-- **ArgoCD**: http://localhost:8081
+- **ArgoCD**: https://localhost:8090
 
 ### Grafana Web UI
 

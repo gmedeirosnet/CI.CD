@@ -7,9 +7,16 @@ This guide provides step-by-step instructions to set up a complete DevOps CI/CD 
 - macOS (M1 recommended), Linux, or Windows with WSL2
 - At least 16GB RAM and 50GB free disk space
 - Docker Desktop installed (required for Kind)
-- GitHub account
+- GitHub account with Personal Access Token
 - Basic understanding of command line
 - Administrator/sudo access
+- Text editor for configuring `.env` file
+
+**Before You Start:**
+1. Ensure Docker Desktop is running
+2. Have your GitHub credentials ready
+3. Copy `.env.template` to `.env` and prepare to fill in credentials as you progress
+4. Review [Port Reference](Port-Reference.md) to ensure ports are available
 
 ## Lab Architecture
 
@@ -31,7 +38,48 @@ Developer → GitHub → Jenkins → Maven Build → SonarQube Analysis
 
 ## Phase 1: Foundation Setup
 
-### 1.1 Install Docker
+### 1.1 Configure Environment Variables
+
+Before starting the installation, configure your environment variables:
+
+```bash
+# Copy the environment template
+cp .env.template .env
+
+# Edit the .env file with your credentials
+nano .env  # or use your preferred editor
+```
+
+**Required Configuration:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GITHUB_USERNAME` | Your GitHub username | your-username |
+| `GITHUB_TOKEN` | GitHub Personal Access Token | ghp_xxxx... |
+| `GITHUB_REPO` | Repository URL | gmedeirosnet/CI.CD |
+| `HARBOR_ADMIN_PASSWORD` | Harbor admin password | Harbor12345 |
+| `HARBOR_ROBOT_SECRET` | Robot account token (generated later) | eyJhbGc... |
+| `JENKINS_PASSWORD` | Jenkins admin password | (set during setup) |
+| `SONAR_TOKEN` | SonarQube authentication token | squ_xxxx... |
+| `ARGOCD_ADMIN_PASSWORD` | ArgoCD admin password | (generated during setup) |
+
+**Port Configuration:**
+
+The `.env` file also defines all service ports:
+- Jenkins: 8080
+- Harbor: 8082 (HTTP), 8443 (HTTPS)
+- SonarQube: 8090
+- ArgoCD: 8090
+- Grafana: 3000
+- Application: 8001
+
+**Important Notes:**
+- ⚠️ **Never commit `.env` to version control** - it contains sensitive credentials
+- The `.env.template` file is tracked in git and serves as a reference
+- Update credentials as you progress through the setup
+- Some values (like tokens) will be generated during tool installation
+
+### 1.2 Install Docker
 ```bash
 # macOS
 brew install --cask docker
@@ -46,7 +94,9 @@ docker --version
 docker-compose --version
 ```
 
-### 1.2 Set Up GitHub Repository
+### 1.3 Set Up GitHub Repository
+
+### 1.3 Set Up GitHub Repository
 ```bash
 # Create new repository on GitHub
 # Clone repository
@@ -63,7 +113,7 @@ git commit -m "Initial project structure"
 git push origin main
 ```
 
-### 1.3 Create Sample Java Application
+### 1.4 Create Sample Java Application
 ```bash
 # Create pom.xml
 cat > pom.xml << 'EOF'
