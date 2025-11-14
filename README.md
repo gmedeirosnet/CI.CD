@@ -98,7 +98,7 @@ The fastest way to get started:
 ./scripts/setup-all.sh
 
 # 3. Start port forwarding and fix Docker permissions
-./scripts/k8s-permissions_port-forward.sh start
+./k8s/k8s-permissions_port-forward.sh start
 
 # 4. Access the services:
 # - Jenkins:    http://localhost:8080
@@ -118,13 +118,13 @@ kubectl apply -f policies/ -R
 **Port Forwarding Management:**
 ```bash
 # Check status of all port forwards
-./scripts/k8s-permissions_port-forward.sh status
+./k8s/k8s-permissions_port-forward.sh status
 
 # Stop all port forwards
-./scripts/k8s-permissions_port-forward.sh stop
+./k8s/k8s-permissions_port-forward.sh stop
 
 # Restart all port forwards
-./scripts/k8s-permissions_port-forward.sh restart
+./k8s/k8s-permissions_port-forward.sh restart
 ```
 
 ### Manual Setup Steps
@@ -258,7 +258,14 @@ If you prefer step-by-step setup:
 - ArgoCD GitOps
 - Harbor security
 
-### Phase 5: Integration (4-6 weeks)
+### Phase 5: Observability and Policy (3-4 weeks)
+- Grafana dashboards
+- Loki log aggregation
+- Prometheus metrics
+- Kyverno policy engine
+- Security and compliance
+
+### Phase 6: Integration (4-6 weeks)
 - Complete pipeline
 - Best practices
 - Production readiness
@@ -274,14 +281,17 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                                                 ↓
                                     ┌───────────┴────────────┐
                                     ↓                        ↓
-                                Application             Monitoring
-                                                    ┌────────┴────────┐
-                                                    ↓                 ↓
-                                              Logs (Loki)      Metrics (Prometheus)
-                                                    └────────┬────────┘
-                                                             ↓
-                                                         Grafana
-                                                    (on Docker Desktop)
+                                Application             Kyverno Policies
+                                    ↓                   (validation/mutation)
+                                    ↓                        ↓
+                                Monitoring              Compliance Reports
+                            ┌────────┴────────┐
+                            ↓                 ↓
+                      Logs (Loki)      Metrics (Prometheus)
+                            └────────┬────────┘
+                                     ↓
+                                 Grafana
+                            (on Docker Desktop)
 ```
 
 ## Key Features## Key Features
