@@ -11,7 +11,7 @@ This document provides a comprehensive reference for all network ports used in t
 | **Jenkins (Agent)** | 50000 | 50000 | TCP | - | Agent communication |
 | **Harbor (HTTP)** | 80 | 8082 | HTTP | http://localhost:8082 | Container registry web UI |
 | **Harbor (HTTPS)** | 443 | 8443 | HTTPS | https://localhost:8443 | Secure container registry |
-| **SonarQube** | 9000 | 9000 | HTTP | http://localhost:9000 | Code quality analysis |
+| **SonarQube** | 9000 | 8090 | HTTP | http://localhost:8090 | Code quality analysis |
 | **Grafana** | 3000 | 3000 | HTTP | http://localhost:3000 | Observability & Logs UI |
 | **Loki** | 3100 | 31000 | HTTP | http://localhost:31000 | Log aggregation API |
 | **Prometheus** | 9090 | 30090 | HTTP | http://localhost:30090 | Metrics & monitoring |

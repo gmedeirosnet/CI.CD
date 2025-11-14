@@ -14,7 +14,7 @@ chmod +x scripts/setup-sonarqube.sh
 
 | Service | URL | Default Credentials |
 |---------|-----|---------------------|
-| SonarQube UI | http://localhost:9000 | admin / admin |
+| SonarQube UI | http://localhost:8090 | admin / admin |
 | Jenkins | http://localhost:8080 | (your Jenkins creds) |
 
 ## Essential Configuration Steps
@@ -26,7 +26,7 @@ docker-compose -f sonar-compose.yml up -d
 ```
 
 ### 2. Generate SonarQube Token
-1. Open http://localhost:9000
+1. Open http://localhost:8090
 2. Login: admin / admin (change password when prompted)
 3. My Account → Security → Generate Token
 4. Name: `Jenkins`, Type: `Global Analysis Token`
@@ -53,7 +53,7 @@ docker-compose -f sonar-compose.yml up -d
 
 ### 4. Create SonarQube Project
 ```bash
-# Via UI:
+# Via UI (http://localhost:8090):
 1. Click "+ Create Project"
 2. Manually
 3. Project key: cicd-demo
@@ -65,7 +65,7 @@ docker-compose -f sonar-compose.yml up -d
 
 - [ ] Docker network `cicd-network` exists
 - [ ] Jenkins connected to network
-- [ ] SonarQube running (http://localhost:9000 accessible)
+- [ ] SonarQube running (http://localhost:8090 accessible)
 - [ ] SonarQube password changed
 - [ ] Authentication token generated
 - [ ] Jenkins plugin installed

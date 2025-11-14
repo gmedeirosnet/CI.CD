@@ -214,7 +214,7 @@ The script includes automatic Docker permission fixing:
 ```
 
 **Access:**
-- URL: http://localhost:9000
+- URL: http://localhost:8090
 - Default credentials: admin/admin
 
 ---

@@ -365,7 +365,7 @@ stateDiagram-v2
 |---------|--------------|---------------|----------|------------|
 | Jenkins | 8080 | 8080 | HTTP | http://localhost:8080 |
 | Harbor | 80/443 | 8082/8443 | HTTP/HTTPS | http://localhost:8082 |
-| SonarQube | 9000 | 9000 | HTTP | http://localhost:9000 |
+| SonarQube | 9000 | 8090 | HTTP | http://localhost:8090 |
 | Application | 8000 | 8000 | HTTP | http://localhost:8000 |
 | ArgoCD | 8080 | 8080 | HTTP | http://localhost:8080 |
 | Kind API Server | 6443 | 6443 | HTTPS | https://localhost:6443 |

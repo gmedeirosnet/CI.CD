@@ -63,12 +63,12 @@ This can take 2-3 minutes. Press `Ctrl+C` to exit log viewing.
 ### Step 4: Verify SonarQube Access
 ```bash
 # From your host machine
-curl -I http://localhost:9000
+curl -I http://localhost:8090
 
 # You should see HTTP/1.1 200 or 302
 ```
 
-Open in browser: http://localhost:9000
+Open in browser: http://localhost:8090
 
 **Default credentials:**
 - Username: `admin`
@@ -81,7 +81,7 @@ Open in browser: http://localhost:9000
 ## Part 2: Configure SonarQube
 
 ### Step 1: Initial Setup
-1. Open http://localhost:9000
+1. Open http://localhost:8090
 2. Login with `admin` / `admin`
 3. Change password when prompted (e.g., to `admin123`)
 4. Click "Skip this tutorial" (or complete it if you prefer)

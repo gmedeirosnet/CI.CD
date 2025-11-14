@@ -28,11 +28,11 @@ SonarQube is an open-source platform for continuous inspection of code quality. 
 ```bash
 # Start SonarQube
 docker run -d --name sonarqube \
-  -p 9000:9000 \
+  -p 8090:9000 \
   -e SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true \
   sonarqube:lts-community
 
-# Access SonarQube at: http://localhost:9000
+# Access SonarQube at: http://localhost:8090
 # Default credentials: admin / admin
 ```
 
@@ -134,8 +134,10 @@ sudo systemctl status sonarqube
 ```
 
 ### Initial Setup
-1. Access http://localhost:9000
-2. Login with admin / admin
+## First Login
+
+1. Access http://localhost:8090
+2. Default credentials:
 3. Change admin password
 4. Configure email server (optional)
 5. Install additional language plugins if needed
@@ -177,7 +179,7 @@ export PATH=$PATH:/opt/sonar-scanner/bin
 # Configure
 vi /opt/sonar-scanner/conf/sonar-scanner.properties
 # Add:
-# sonar.host.url=http://localhost:9000
+# sonar.host.url=http://localhost:8090
 # sonar.login=<your-token>
 ```
 
@@ -204,7 +206,7 @@ EOF
 
 # Run analysis
 sonar-scanner \
-  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.host.url=http://localhost:8090 \
   -Dsonar.login=<your-token>
 ```
 
@@ -212,7 +214,7 @@ sonar-scanner \
 ```xml
 <!-- Add to pom.xml -->
 <properties>
-    <sonar.host.url>http://localhost:9000</sonar.host.url>
+    <sonar.host.url>http://localhost:8090</sonar.host.url>
 </properties>
 ```
 
@@ -224,7 +226,7 @@ mvn clean verify sonar:sonar \
 # With specific profile
 mvn clean verify sonar:sonar \
   -Dsonar.projectKey=my-project \
-  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.host.url=http://localhost:8090 \
   -Dsonar.login=<your-token>
 ```
 
@@ -237,9 +239,11 @@ plugins {
 
 sonarqube {
     properties {
+        sonarqube {
+        properties {
         property "sonar.projectKey", "my-project"
-        property "sonar.host.url", "http://localhost:9000"
-        property "sonar.login", "<your-token>"
+        property "sonar.host.url", "http://localhost:8090"
+        property "sonar.login", "your-token-here"
     }
 }
 ```
@@ -300,7 +304,7 @@ curl -u <token>: \
 2. SonarQube servers
 3. Add SonarQube
    - Name: SonarQube
-   - Server URL: http://localhost:9000
+   - Server URL: http://localhost:8090
    - Server authentication token
 
 #### Jenkinsfile

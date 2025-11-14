@@ -99,7 +99,7 @@ The fastest way to get started:
 # 4. Access the services:
 # - Jenkins:    http://localhost:8080
 # - Harbor:     http://localhost:8082
-# - SonarQube:  http://localhost:9000
+# - SonarQube:  http://localhost:8090
 # - Grafana:    http://localhost:3000
 # - Prometheus: http://localhost:30090
 # - Loki:       http://localhost:31000
