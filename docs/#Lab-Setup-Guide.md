@@ -603,14 +603,63 @@ brew install argocd
 argocd login localhost:8090
 ```
 
-### 4.2 Configure ArgoCD
+### 4.2 Configure ArgoCD Credentials in Jenkins
+
+Before ArgoCD can be used in the Jenkins pipeline, you need to add ArgoCD credentials to Jenkins.
+
+#### Step 1: Get ArgoCD Admin Password
+```bash
+# Get the initial admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+echo
+
+# Copy this password - you'll need it for Jenkins
+```
+
+#### Step 2: Add Credential to Jenkins
+1. Open Jenkins at http://localhost:8080
+2. Go to **Manage Jenkins** → **Credentials** → **System**
+3. Click **Global credentials (unrestricted)**
+4. Click **Add Credentials**
+
+#### Step 3: Configure Credential
+
+| Field | Value |
+|-------|-------|
+| **Kind** | Username with password |
+| **Scope** | Global |
+| **Username** | `admin` |
+| **Password** | [paste the password from step 1] |
+| **ID** | `argocd-credentials` |
+| **Description** | ArgoCD admin credentials for deployment |
+
+#### Step 4: Save
+Click **Create**
+
+**Important Notes:**
+- The credential ID must be exactly `argocd-credentials` (as referenced in Jenkinsfile)
+- The username is always `admin` for initial setup
+- You can change the ArgoCD admin password later via UI or CLI
+- For production, consider creating a dedicated ArgoCD service account
+
+**Verify Credential:**
+```bash
+# Test ArgoCD login from Jenkins container
+docker exec jenkins argocd login host.docker.internal:8090 \
+  --username admin \
+  --password [your-password] \
+  --insecure \
+  --grpc-web
+```
+
+### 4.3 Configure ArgoCD Repository Access
 ```bash
 # Running the following command to allow ArgoCD to access the local Kind cluster
 1. chmod 0755 scripts/setup-argocd-repo.sh
 2. ./scripts/setup-argocd-repo.sh
 ```
 
-### 4.3 Create Application in ArgoCD
+### 4.4 Create Application in ArgoCD
 
 #### Method 1: Using ArgoCD UI
 1. Access ArgoCD UI at https://localhost:8090
@@ -889,10 +938,11 @@ helm package cicd-demo
 ### 7.1 Configure Jenkins Credentials
 1. Manage Jenkins > Credentials
 2. Add credentials:
-   - GitHub: username + token
-   - Harbor: username + password
-   - SonarQube: secret text (token)
-   - Kubeconfig: secret file
+   - **ArgoCD**: username + password (ID: `argocd-credentials`) - See Section 4.2
+   - **GitHub**: username + token (ID: `github-credentials`)
+   - **Harbor**: username + password (ID: `harbor-credentials`) - See Section 2.3
+   - **SonarQube**: secret text (token) (ID: `sonarqube-token`) - See Section 2.2
+   - **Kubeconfig**: secret file (optional, if using external cluster)
 
 ### 7.2 Create Jenkinsfile
 ```groovy
