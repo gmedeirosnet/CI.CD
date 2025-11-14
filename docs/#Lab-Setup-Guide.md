@@ -853,28 +853,80 @@ kubectl get pods -n logging
 # promtail-xxxxx         1/1     Running   0          2m
 # promtail-xxxxx         1/1     Running   0          2m
 
-# Check Loki is ready
-kubectl port-forward -n logging svc/loki 3100:3100 &
-curl http://localhost:3100/ready
-# Should return: ready
-
-# Stop port forward
-pkill -f "port-forward.*loki"
+# Check Loki service is available
+kubectl get svc -n logging loki
 ```
 
-### 5.2 Install Grafana (Visualization)
+### 5.2 Setup Port Forwarding for Monitoring Services
+
+Use the automated port forwarding script to expose Loki, Prometheus, and ArgoCD:
+
+```bash
+# Make script executable
+chmod +x k8s-permissions_port-forward.sh
+
+# Start port forwarding (also fixes Docker permissions for Jenkins)
+./k8s-permissions_port-forward.sh start
+```
+
+**What the script does:**
+1. **Fixes Docker socket permissions** for Jenkins container
+2. **Port forwards Loki** - localhost:31000 → logging/loki:3100
+3. **Port forwards Prometheus** - localhost:30090 → monitoring/prometheus:9090
+4. **Port forwards ArgoCD** - localhost:8090 → argocd/argocd-server:443
+
+**Script Commands:**
+```bash
+# Check status of all port forwards
+./k8s-permissions_port-forward.sh status
+
+# Stop all port forwards
+./k8s-permissions_port-forward.sh stop
+
+# Restart all port forwards
+./k8s-permissions_port-forward.sh restart
+
+# Fix Docker permissions only (without starting port forwards)
+./k8s-permissions_port-forward.sh fix-docker
+
+# Cleanup orphaned port forward processes
+./k8s-permissions_port-forward.sh cleanup
+```
+
+**Verify port forwarding:**
+```bash
+# Test Loki accessibility
+curl http://localhost:31000/ready
+# Should return: ready
+
+# Test Prometheus
+curl http://localhost:30090/-/healthy
+# Should return: Prometheus is Healthy.
+
+# Test ArgoCD
+curl -k https://localhost:8090/healthz
+# Should return: ok
+```
+
+**Important Notes:**
+- The script automatically manages PID files in `/tmp/k8s-port-forward/`
+- Port forwards persist until stopped or system reboot
+- The script also fixes Docker socket permissions for Jenkins
+- If ports are already in use, the script will report conflicts
+
+### 5.3 Install Grafana (Visualization)
 
 Grafana runs on Docker Desktop and connects to Loki in the Kind cluster.
 
 ```bash
-# Run Grafana setup script
+# Run Grafana setup script (from k8s/grafana directory)
 chmod +x setup-grafana-docker.sh
 ./setup-grafana-docker.sh
 ```
 
 **What it does:**
 1. Checks if Loki is running
-2. Exposes Loki via NodePort (port 31000) or Kind network
+2. Verifies Loki port forward is active (port 31000)
 3. Starts Grafana container with Docker Compose
 4. Pre-configures Loki as default datasource
 5. Verifies connectivity
@@ -884,7 +936,7 @@ chmod +x setup-grafana-docker.sh
 - Username: `admin`
 - Password: `admin`
 
-### 5.3 Verify Logging Stack
+### 5.4 Verify Logging Stack
 
 ```bash
 # Check Grafana container
@@ -892,6 +944,9 @@ docker ps | grep grafana
 
 # Check Loki service
 kubectl get svc -n logging loki
+
+# Verify port forward is running
+../k8s-permissions_port-forward.sh status
 
 # Test log query
 # Open Grafana: http://localhost:3000
@@ -919,7 +974,8 @@ kubectl get svc -n logging loki
 **Important Notes:**
 - Grafana runs on Docker Desktop, not in Kubernetes
 - Loki and Promtail run inside the Kind cluster
-- Connection between Grafana and Loki uses NodePort (31000) or Kind network bridge
+- Port forwarding is managed by `k8s-permissions_port-forward.sh` script
+- Connection uses localhost:31000 (port forward from Loki service)
 - All pod logs are automatically collected by Promtail
 - Logs are retained based on Loki configuration (default: limited by storage)
 
@@ -928,6 +984,12 @@ kubectl get svc -n logging loki
 # If Grafana can't connect to Loki
 kubectl get svc -n logging loki
 curl http://localhost:31000/ready
+
+# Verify port forward is running
+cd .. && ./k8s-permissions_port-forward.sh status
+
+# Restart port forwards if needed
+./k8s-permissions_port-forward.sh restart
 
 # Check Promtail is collecting logs
 kubectl logs -n logging daemonset/promtail --tail=50

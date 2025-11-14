@@ -19,7 +19,7 @@ typeset -A PORT_FORWARDS
 PORT_FORWARDS=(
     loki "logging:loki:31000:3100"
     prometheus "monitoring:prometheus:30090:9090"
-    argocd "argocd:argocd-server:8081:80"
+    argocd "argocd:argocd-server:8090:443"
 )
 
 # PID file location
