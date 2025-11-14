@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-K8S_DIR="$SCRIPT_DIR/../k8s/prometheus"
+K8S_DIR="$SCRIPT_DIR/../prometheus"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Prometheus Setup${NC}"

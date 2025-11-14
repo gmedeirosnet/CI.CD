@@ -862,11 +862,14 @@ kubectl get svc -n logging loki
 Use the automated port forwarding script to expose Loki, Prometheus, and ArgoCD:
 
 ```bash
+# Navigate to project root (if in k8s/grafana directory)
+cd ../..
+
 # Make script executable
-chmod +x k8s-permissions_port-forward.sh
+chmod +x k8s/k8s-permissions_port-forward.sh
 
 # Start port forwarding (also fixes Docker permissions for Jenkins)
-./k8s-permissions_port-forward.sh start
+./k8s/k8s-permissions_port-forward.sh start
 ```
 
 **What the script does:**
@@ -878,19 +881,19 @@ chmod +x k8s-permissions_port-forward.sh
 **Script Commands:**
 ```bash
 # Check status of all port forwards
-./k8s-permissions_port-forward.sh status
+./k8s/k8s-permissions_port-forward.sh status
 
 # Stop all port forwards
-./k8s-permissions_port-forward.sh stop
+./k8s/k8s-permissions_port-forward.sh stop
 
 # Restart all port forwards
-./k8s-permissions_port-forward.sh restart
+./k8s/k8s-permissions_port-forward.sh restart
 
 # Fix Docker permissions only (without starting port forwards)
-./k8s-permissions_port-forward.sh fix-docker
+./k8s/k8s-permissions_port-forward.sh fix-docker
 
 # Cleanup orphaned port forward processes
-./k8s-permissions_port-forward.sh cleanup
+./k8s/k8s-permissions_port-forward.sh cleanup
 ```
 
 **Verify port forwarding:**
@@ -946,7 +949,7 @@ docker ps | grep grafana
 kubectl get svc -n logging loki
 
 # Verify port forward is running
-../k8s-permissions_port-forward.sh status
+./k8s/k8s-permissions_port-forward.sh status
 
 # Test log query
 # Open Grafana: http://localhost:3000
@@ -986,10 +989,10 @@ kubectl get svc -n logging loki
 curl http://localhost:31000/ready
 
 # Verify port forward is running
-cd .. && ./k8s-permissions_port-forward.sh status
+./k8s/k8s-permissions_port-forward.sh status
 
 # Restart port forwards if needed
-./k8s-permissions_port-forward.sh restart
+./k8s/k8s-permissions_port-forward.sh restart
 
 # Check Promtail is collecting logs
 kubectl logs -n logging daemonset/promtail --tail=50
