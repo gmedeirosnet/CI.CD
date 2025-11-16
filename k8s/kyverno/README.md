@@ -39,6 +39,9 @@ kubectl get clusterpolicies
 # Run test suite
 ./tests/run-tests.sh
 
+# Test namespace deletion protection specifically
+./tests/test-namespace-protection.sh
+
 # View policy violations
 ./monitoring/view-violations.sh
 ```
@@ -110,6 +113,12 @@ All policies are deployed in **Audit mode** by default. This means:
 - Requires `team` and `purpose` labels on all namespaces
 - Helps with organization and resource tracking
 - Excludes system namespaces
+
+**prevent-namespace-deletion.yaml**
+- Prevents deletion of the `app-demo` namespace
+- Protects critical application resources
+- Validation mode: **Enforce** (blocks deletion attempts)
+- Status: **CRITICAL** protection policy
 
 #### 2. Security Policies (`10-security/`)
 

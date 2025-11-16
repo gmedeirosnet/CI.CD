@@ -1124,10 +1124,29 @@ kubectl get application kyverno-policies -n argocd -o yaml
 #### 1. Namespace Requirements (`00-namespace/`)
 ```bash
 kubectl describe clusterpolicy namespace-requirements
+kubectl describe clusterpolicy prevent-app-demo-namespace-deletion
 ```
+
+**namespace-requirements.yaml**
 - Requires `team` and `purpose` labels on all namespaces
 - Excludes system namespaces (kube-system, kyverno, argocd, etc.)
 - Helps with organization and cost tracking
+- **Mode**: Audit
+
+**prevent-namespace-deletion.yaml**
+- Prevents deletion of the `app-demo` namespace
+- Protects critical application resources from accidental deletion
+- **Mode**: Enforce (actively blocks deletion attempts)
+- **Severity**: Critical
+
+**Test protection:**
+```bash
+# This will be blocked
+kubectl delete namespace app-demo
+# Error: admission webhook "validate.kyverno.svc" denied the request:
+# policy prevent-app-demo-namespace-deletion/block-app-demo-namespace-deletion:
+# Deletion of namespace 'app-demo' is not allowed.
+```
 
 #### 2. Security Policies (`10-security/`)
 
