@@ -5,6 +5,7 @@ This directory contains ArgoCD Application manifests for deploying your applicat
 ## Files
 
 - `sample-nginx-app.yaml` - Example nginx application deployment
+- `kyverno-policies.yaml` - Kyverno policy engine policies deployment
 
 ## Usage
 
@@ -67,9 +68,52 @@ Check application status:
 argocd app get sample-nginx-app
 argocd app sync sample-nginx-app
 
+# For Kyverno policies
+argocd app get kyverno-policies
+argocd app sync kyverno-policies
+
 # Via UI
 # Visit https://localhost:8090 and view the application
 ```
+
+## Kyverno Policies Application
+
+The `kyverno-policies.yaml` application deploys all Kyverno policies from the repository:
+
+**Features:**
+- Automatically deploys all policies from `k8s/kyverno/policies/`
+- Recursive directory scanning (deploys all subdirectories)
+- Auto-sync enabled with self-healing
+- Namespace: Policies are ClusterPolicies (cluster-wide)
+
+**Deployment:**
+```bash
+# Deploy Kyverno policies via ArgoCD
+kubectl apply -f argocd-apps/kyverno-policies.yaml
+
+# Check sync status
+argocd app get kyverno-policies
+
+# View deployed policies
+kubectl get clusterpolicies
+
+# View policy reports
+kubectl get clusterpolicyreport -A
+kubectl get policyreport -n app-demo
+```
+
+**Policy Categories Deployed:**
+1. **Namespace Requirements** (`00-namespace/`) - Label enforcement
+2. **Security Policies** (`10-security/`) - Privileged containers, non-root users, read-only filesystem
+3. **Resource Limits** (`20-resources/`) - CPU/memory requirements
+4. **Registry Enforcement** (`30-registry/`) - Harbor-only images
+5. **Label Management** (`40-labels/`) - Auto-inject standard labels
+
+**Important Notes:**
+- All policies are deployed in **Audit mode** (violations logged, not blocked)
+- Policies exclude system namespaces (kube-system, argocd, monitoring, logging, kyverno)
+- Policy changes in Git are automatically synced to the cluster
+- Use `kubectl describe clusterpolicy <name>` to view policy details
 
 ## Troubleshooting
 

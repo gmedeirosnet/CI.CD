@@ -1065,6 +1065,8 @@ kubectl get deployment -n kyverno kyverno-admission-controller \
 
 All policies are deployed in **Audit mode**, meaning violations are logged but deployments are NOT blocked. This is ideal for learning and gradual enforcement.
 
+#### Method 1: Direct kubectl Apply (Quick)
+
 ```bash
 # Deploy all policies (from k8s/kyverno directory)
 kubectl apply -f policies/ -R
@@ -1080,6 +1082,41 @@ kubectl get clusterpolicies
 # namespace-requirements        true         Audit             true
 # require-non-root-user         true         Audit             true
 # require-resource-limits       true         Audit             true
+```
+
+#### Method 2: GitOps with ArgoCD (Recommended)
+
+Deploy policies using ArgoCD for automatic synchronization with Git:
+
+```bash
+# Deploy Kyverno policies application
+kubectl apply -f argocd-apps/kyverno-policies.yaml
+
+# Check sync status
+argocd app get kyverno-policies
+
+# Or view in ArgoCD UI
+# Visit https://localhost:8090
+# Look for "kyverno-policies" application
+```
+
+**GitOps Benefits:**
+- ✅ Policies automatically sync with Git repository
+- ✅ Changes to policies in Git are auto-deployed
+- ✅ Self-healing: Manual changes are reverted to Git state
+- ✅ Full audit trail of policy changes
+- ✅ Easy rollback to previous versions
+
+**Verify ArgoCD deployment:**
+```bash
+# Check application status
+argocd app get kyverno-policies
+
+# View deployed policies
+kubectl get clusterpolicies
+
+# Check ArgoCD application health
+kubectl get application kyverno-policies -n argocd -o yaml
 ```
 
 **Policy Details:**

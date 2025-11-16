@@ -11,7 +11,7 @@ spec:
 
   source:
     repoURL: https://github.com/gmedeirosnet/CI.CD
-    targetRevision: feature--Kyverno
+    targetRevision: main
     path: k8s/kyverno/policies
     directory:
       recurse: true
