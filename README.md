@@ -498,16 +498,51 @@ cp .env.template .env
 
 See [Lab Setup Guide](docs/#Lab-Setup-Guide.md#11-configure-environment-variables) for detailed configuration instructions.
 
-## Contributing
+## Documentation Glossary
 
-This is a learning laboratory. Contributions welcome:
-- Documentation improvements
-- Additional examples
-- Troubleshooting tips
-- Tool updates
-- New scenarios
+Complete reference to all documentation files in this repository:
 
-## Resources
+### Setup & Configuration
+- [Lab Setup Guide](docs/#Lab-Setup-Guide.md) - Complete step-by-step laboratory setup (11 phases)
+- [Project Overview](docs/Project-Overview.md) - Detailed project information and architecture
+- [Architecture Diagram](docs/Architecture-Diagram.md) - Visual pipeline overview
+- [Port Reference](docs/Port-Reference.md) - All service ports and URLs
+- [Cleanup Guide](docs/Cleanup-Guide.md) - Teardown procedures and cleanup scripts
+
+### Tools & Technologies
+- [ArgoCD](docs/ArgoCD.md) - GitOps continuous delivery guide
+- [Docker](docs/Docker.md) - Containerization fundamentals and best practices
+- [Grafana & Loki](docs/Grafana-Loki.md) - Monitoring, logging, and Prometheus integration
+- [Harbor](docs/Harbor.md) - Container registry setup and management
+- [Helm Charts](docs/Helm-Charts.md) - Kubernetes package management
+- [Jenkins](docs/Jenkins.md) - CI/CD automation server configuration
+- [Kind (K8s in Docker)](docs/Kind-K8s.md) - Local Kubernetes cluster setup
+- [Maven](docs/Maven.md) - Build automation and dependency management
+- [SonarQube](docs/SonarQube.md) - Code quality and security analysis
+- [Kyverno](k8s/kyverno/README.md) - Policy engine and compliance
+
+### Quick Reference Guides
+- [ArgoCD Quick Setup](docs/argocd-setup.md) - Fast ArgoCD configuration
+- [ArgoCD Repository Setup](docs/ArgoCD_setup-argocd-repo.md) - Repository access configuration
+- [Harbor-Kind Integration](docs/Harbor-Kind-Integration.md) - Connecting Harbor with Kind cluster
+- [Harbor Quick Start](docs/QUICK-START-Harbor-Kind.md) - Rapid Harbor and Kind setup
+- [SonarQube Quick Reference](docs/SonarQube-QuickRef.md) - Common SonarQube operations
+- [SonarQube Setup](docs/SonarQube-Setup.md) - Detailed installation instructions
+
+### Integration & Credentials
+- [GitHub-Jenkins Credential Setup](docs/GitHub-Jenkins-Credential-Setup.md) - GitHub integration with Jenkins
+- [Harbor-Jenkins Credential Setup](docs/Harbor-Jenkins-Credential-Setup.md) - Harbor integration with Jenkins
+- [Scripts Documentation](docs/Scripts.md) - Automation scripts reference
+
+### Deployment & Operations
+- [Kubelet Pod Deployment](docs/Kubelet-Pod-Deployment.md) - Kubernetes pod deployment patterns
+- [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
+
+### Learning & Development
+- [Study Plan](docs/StudyPlan.md) - DevOps learning curriculum and timeline
+
+### Diagrams
+- [K8S Kubelet Deployment Diagram](docs/diagrams/K8S-Kubelet-Deployment.md) - Kubernetes deployment visualization
 
 ### Official Documentation
 - [Jenkins](https://www.jenkins.io/doc/)
@@ -522,6 +557,7 @@ This is a learning laboratory. Contributions welcome:
 - [Grafana](https://grafana.com/docs/)
 - [Loki](https://grafana.com/docs/loki/latest/)
 - [Prometheus](https://prometheus.io/docs/)
+- [Kyverno](https://kyverno.io/docs/)
 
 ### Study Reference
 - [NotebookLM Study Guide](https://notebooklm.google.com/notebook/04068cbd-0312-45b1-b221-ec2642e79464)
