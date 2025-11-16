@@ -1893,6 +1893,9 @@ docker exec -it app-demo-control-plane bash
    - Create dashboards for log analysis
 2. Add metrics monitoring with Prometheus
 3. Create Grafana dashboards for application metrics
+  a. K8S Dashboard: ID 15661
+  b. Loki Logging Dashboard: ID 23789
+  c. Node Exporter Full: ID 1860
 4. Implement blue-green deployments in local cluster
 5. Add integration tests
 6. Configure backup strategies for local development
