@@ -28,11 +28,14 @@
           "Docker containerization",
           "Kubernetes cluster management with Kind",
           "ArgoCD GitOps deployment",
-          "Ansible automation",
+          "Kyverno policy engine and security",
           "Harbor registry configuration",
           "Helm chart development",
           "Maven build configuration",
-          "SonarQube integration"
+          "SonarQube integration",
+          "Grafana dashboards and visualization",
+          "Loki log aggregation",
+          "Prometheus metrics collection"
         ]
       },
       {
@@ -42,7 +45,8 @@
           "GitHub + Jenkins + ArgoCD workflow",
           "SonarQube + Jenkins integration",
           "Harbor + Kubernetes integration",
-          "Ansible + Kind Kubernetes automation"
+          "Kyverno + ArgoCD policy enforcement",
+          "Grafana + Loki + Prometheus observability stack"
         ]
       },
       {
