@@ -457,7 +457,7 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
     ./install/setup-kyverno.sh
     cd "$PROJECT_ROOT"
     print_success "Kyverno installed in kyverno namespace"
-    
+
     # Deploy policies
     print_info "Deploying Kyverno policies via ArgoCD..."
     if kubectl get namespace argocd &> /dev/null; then
