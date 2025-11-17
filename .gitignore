@@ -239,6 +239,7 @@ temp/
 *.tmp
 *.temp
 .cache/
+generate-release-notes.sh
 
 # Database
 *.sql
