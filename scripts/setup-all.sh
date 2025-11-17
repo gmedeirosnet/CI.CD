@@ -162,8 +162,8 @@ if ! check_command helm; then
 fi
 
 # Check available disk space
-AVAILABLE_SPACE=$(df -h "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/G//')
-if [ "${AVAILABLE_SPACE%.*}" -lt 20 ]; then
+AVAILABLE_SPACE=$(df -h "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/[^0-9.]//g')
+if [ -n "$AVAILABLE_SPACE" ] && [ "${AVAILABLE_SPACE%.*}" -lt 20 ] 2>/dev/null; then
     print_warning "Low disk space: ${AVAILABLE_SPACE}GB available. Recommended: 50GB+"
 fi
 
@@ -215,18 +215,27 @@ fi
 
 print_header "Step 3: Setting up Kind Kubernetes Cluster"
 
-if kind get clusters | grep -q "^kind$"; then
-    print_info "Kind cluster already exists"
+# Determine cluster name from config or use default
+CLUSTER_NAME="kind"
+if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
+    CLUSTER_NAME=$(grep "^name:" "$PROJECT_ROOT/kind-config.yaml" | awk '{print $2}')
+    if [ -z "$CLUSTER_NAME" ]; then
+        CLUSTER_NAME="kind"
+    fi
+fi
+
+if kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
+    print_info "Kind cluster '$CLUSTER_NAME' already exists"
     read -p "Do you want to recreate it? (y/n) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        kind delete cluster --name kind
+        kind delete cluster --name "$CLUSTER_NAME"
         print_success "Deleted existing cluster"
     fi
 fi
 
-if ! kind get clusters | grep -q "^kind$"; then
-    print_info "Creating Kind cluster..."
+if ! kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
+    print_info "Creating Kind cluster '$CLUSTER_NAME'..."
     if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
         kind create cluster --config "$PROJECT_ROOT/kind-config.yaml"
     else
@@ -236,7 +245,7 @@ if ! kind get clusters | grep -q "^kind$"; then
 fi
 
 # Verify kubectl access
-kubectl cluster-info --context kind-kind
+kubectl cluster-info --context "kind-${CLUSTER_NAME}"
 print_success "Kubernetes cluster is accessible"
 
 echo ""
