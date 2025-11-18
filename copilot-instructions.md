@@ -1,3 +1,6 @@
+# GOALS
+As a DevOps, I must have a deep knowledge of the Clusters, Kubernetes, Docker, Cloud providers, Virtualization, CI tools, CD tools, and Observability tools.
+
 # GETTING DATA
 Use the "instructions" directory to store: instructions, prompt files, tool sets, modes, and documentation.
 Create the prompt, instructions, and all files in JSON format.
@@ -17,12 +20,12 @@ The Study reference is in https://notebooklm.google.com/notebook/04068cbd-0312-4
 - `scripts/` - Setup and utility scripts
 - `src/` - Demo Spring Boot application
 - `helm-charts/` - Kubernetes Helm charts
-- `k8s/` - Raw Kubernetes manifests
+- `k8s/` - Raw Kubernetes manifests and tools
 - `harbor/` - Harbor registry configuration
 - `argocd-apps/` - ArgoCD application definitions
 
 # TOOLS
-ArgoCD, Kind (K8s in Docker), Docker, GitHub, Harbor, Helm Charts, Maven, Jenkins, SonarQube
+ArgoCD, Kind (K8s in Docker), Docker, GitHub, Grafana, Harbor, Helm Charts, Maven, Jenkins, SonarQube, Kubernetes, Kyverno, Loki, Prometheus
 
 # INSTRUCTIONS
 Create short documentation files only in the "docs" directory.
