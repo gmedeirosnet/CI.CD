@@ -82,17 +82,17 @@ if command -v kind &> /dev/null; then
     if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
         CLUSTER_NAME=$(grep "^name:" "$PROJECT_ROOT/kind-config.yaml" | awk '{print $2}')
     fi
-    
+
     # If no config or name not found, get all clusters
     CLUSTERS=$(kind get clusters 2>/dev/null || true)
-    
+
     if [ -n "$CLUSTERS" ]; then
         # If we have a specific cluster name from config, delete it
         if [ -n "$CLUSTER_NAME" ] && echo "$CLUSTERS" | grep -q "^${CLUSTER_NAME}$"; then
             print_info "Deleting Kind cluster '$CLUSTER_NAME'..."
             kind delete cluster --name "$CLUSTER_NAME"
             print_success "Kind cluster '$CLUSTER_NAME' deleted"
-            
+
             # Clean up kubeconfig
             kubectl config delete-context "kind-${CLUSTER_NAME}" 2>/dev/null || true
             kubectl config delete-cluster "kind-${CLUSTER_NAME}" 2>/dev/null || true
@@ -104,7 +104,7 @@ if command -v kind &> /dev/null; then
                 print_info "Deleting Kind cluster '$cluster'..."
                 kind delete cluster --name "$cluster"
                 print_success "Kind cluster '$cluster' deleted"
-                
+
                 # Clean up kubeconfig
                 kubectl config delete-context "kind-${cluster}" 2>/dev/null || true
                 kubectl config delete-cluster "kind-${cluster}" 2>/dev/null || true
