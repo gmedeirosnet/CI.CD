@@ -13,14 +13,17 @@
   "focus_tools": [
     "ArgoCD",
     "Kind (K8s in Docker)",
-    "Ansible",
+    "Kyverno",
     "Docker",
     "GitHub",
     "Harbor",
     "Helm Charts",
     "Maven",
     "Jenkins",
-    "SonarQube"
+    "SonarQube",
+    "Grafana",
+    "Loki",
+    "Prometheus"
   ],
   "reference_materials": {
     "study_plan": "docs/StudyPlan.md",

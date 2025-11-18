@@ -17,12 +17,12 @@
       "prerequisites": ["Kubernetes basics", "Docker", "Container concepts"]
     },
     {
-      "name": "Ansible",
-      "category": "Infrastructure as Code / Configuration Management",
-      "description": "Open-source automation tool for configuration management, application deployment, and task automation",
-      "use_case": "Automate infrastructure provisioning and configuration management",
+      "name": "Kyverno",
+      "category": "Policy Engine / Security",
+      "description": "Kubernetes-native policy engine for security, compliance, and governance",
+      "use_case": "Enforce security policies, validate configurations, and ensure compliance in Kubernetes clusters",
       "learning_priority": "high",
-      "prerequisites": ["YAML", "SSH", "Linux basics"]
+      "prerequisites": ["Kubernetes", "YAML", "Security concepts"]
     },
     {
       "name": "Docker",
@@ -79,6 +79,30 @@
       "use_case": "Perform static code analysis, manage code quality, and identify security issues",
       "learning_priority": "high",
       "prerequisites": ["Programming basics", "Code quality concepts"]
+    },
+    {
+      "name": "Grafana",
+      "category": "Observability / Monitoring",
+      "description": "Open-source analytics and monitoring platform with multi-source data visualization",
+      "use_case": "Visualize logs, metrics, and traces from multiple sources in unified dashboards",
+      "learning_priority": "medium",
+      "prerequisites": ["Basic monitoring concepts", "Query languages"]
+    },
+    {
+      "name": "Loki",
+      "category": "Observability / Logging",
+      "description": "Horizontally-scalable, highly-available log aggregation system inspired by Prometheus",
+      "use_case": "Collect, aggregate, and query logs from Kubernetes applications with minimal resource usage",
+      "learning_priority": "medium",
+      "prerequisites": ["Kubernetes", "LogQL basics", "Logging concepts"]
+    },
+    {
+      "name": "Prometheus",
+      "category": "Observability / Metrics",
+      "description": "Open-source monitoring and alerting toolkit with time-series database",
+      "use_case": "Collect and query metrics from applications and infrastructure, set up alerting rules",
+      "learning_priority": "medium",
+      "prerequisites": ["PromQL basics", "Metrics concepts", "Time-series data"]
     }
   ]
 }

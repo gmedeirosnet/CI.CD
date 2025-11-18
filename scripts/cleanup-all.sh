@@ -77,19 +77,42 @@ REMOVE_VOLUMES=$REPLY
 print_header "Step 1: Removing Kind Kubernetes Cluster"
 
 if command -v kind &> /dev/null; then
-    if kind get clusters 2>/dev/null | grep -q "kind"; then
-        print_info "Deleting Kind cluster..."
-        kind delete cluster --name kind
-        print_success "Kind cluster deleted"
-    else
-        print_info "No Kind cluster found"
+    # Get cluster name from kind-config.yaml or detect running clusters
+    CLUSTER_NAME=""
+    if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
+        CLUSTER_NAME=$(grep "^name:" "$PROJECT_ROOT/kind-config.yaml" | awk '{print $2}')
     fi
 
-    # Clean up kubeconfig
-    if kubectl config get-contexts | grep -q "kind-kind"; then
-        kubectl config delete-context kind-kind 2>/dev/null || true
-        kubectl config delete-cluster kind-kind 2>/dev/null || true
-        print_success "Cleaned up kubeconfig"
+    # If no config or name not found, get all clusters
+    CLUSTERS=$(kind get clusters 2>/dev/null || true)
+
+    if [ -n "$CLUSTERS" ]; then
+        # If we have a specific cluster name from config, delete it
+        if [ -n "$CLUSTER_NAME" ] && echo "$CLUSTERS" | grep -q "^${CLUSTER_NAME}$"; then
+            print_info "Deleting Kind cluster '$CLUSTER_NAME'..."
+            kind delete cluster --name "$CLUSTER_NAME"
+            print_success "Kind cluster '$CLUSTER_NAME' deleted"
+
+            # Clean up kubeconfig
+            kubectl config delete-context "kind-${CLUSTER_NAME}" 2>/dev/null || true
+            kubectl config delete-cluster "kind-${CLUSTER_NAME}" 2>/dev/null || true
+            print_success "Cleaned up kubeconfig"
+        else
+            # Delete all found clusters
+            print_info "Found clusters: $CLUSTERS"
+            for cluster in $CLUSTERS; do
+                print_info "Deleting Kind cluster '$cluster'..."
+                kind delete cluster --name "$cluster"
+                print_success "Kind cluster '$cluster' deleted"
+
+                # Clean up kubeconfig
+                kubectl config delete-context "kind-${cluster}" 2>/dev/null || true
+                kubectl config delete-cluster "kind-${cluster}" 2>/dev/null || true
+            done
+            print_success "Cleaned up kubeconfig"
+        fi
+    else
+        print_info "No Kind clusters found"
     fi
 else
     print_warning "Kind command not found"
@@ -155,7 +178,24 @@ echo ""
 
 print_header "Step 4: Stopping SonarQube"
 
-if docker ps -a | grep -q "sonarqube"; then
+# Check if SonarQube was deployed via docker-compose
+if [ -f "$SCRIPT_DIR/sonar-compose.yml" ]; then
+    if docker ps -a | grep -q "sonar"; then
+        print_info "Stopping SonarQube (docker-compose)..."
+        cd "$SCRIPT_DIR"
+        if [[ $REMOVE_VOLUMES =~ ^[Yy]$ ]]; then
+            docker-compose -f sonar-compose.yml down -v
+            print_success "SonarQube stopped and volumes removed"
+        else
+            docker-compose -f sonar-compose.yml down
+            print_success "SonarQube stopped (volumes preserved)"
+        fi
+        cd "$PROJECT_ROOT"
+    else
+        print_info "SonarQube not running"
+    fi
+# Fallback to standalone container cleanup
+elif docker ps -a | grep -q "sonarqube"; then
     print_info "Stopping SonarQube..."
     docker stop sonarqube 2>/dev/null || true
     docker rm sonarqube 2>/dev/null || true

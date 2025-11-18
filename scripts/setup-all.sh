@@ -63,8 +63,12 @@ wait_for_service() {
     print_info "Waiting for $service_name to be ready..."
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -f "$url" > /dev/null 2>&1; then
-            print_success "$service_name is ready!"
+        # Get HTTP status code
+        local http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null)
+
+        # Accept 200 (OK), 302 (Redirect), 403 (Auth required - Jenkins), 401 (Unauthorized)
+        if [[ "$http_code" =~ ^(200|302|401|403)$ ]]; then
+            print_success "$service_name is ready! (HTTP $http_code)"
             return 0
         fi
         echo -n "."
@@ -89,6 +93,10 @@ echo "- Jenkins CI/CD server"
 echo "- Harbor container registry"
 echo "- SonarQube code analysis"
 echo "- ArgoCD GitOps deployment"
+echo "- Grafana visualization platform"
+echo "- Loki log aggregation system"
+echo "- Prometheus metrics collection"
+echo "- Kyverno policy engine"
 echo ""
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo ""
@@ -162,8 +170,8 @@ if ! check_command helm; then
 fi
 
 # Check available disk space
-AVAILABLE_SPACE=$(df -h "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/G//')
-if [ "${AVAILABLE_SPACE%.*}" -lt 20 ]; then
+AVAILABLE_SPACE=$(df -h "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/[^0-9.]//g')
+if [ -n "$AVAILABLE_SPACE" ] && [ "${AVAILABLE_SPACE%.*}" -lt 20 ] 2>/dev/null; then
     print_warning "Low disk space: ${AVAILABLE_SPACE}GB available. Recommended: 50GB+"
 fi
 
@@ -215,18 +223,27 @@ fi
 
 print_header "Step 3: Setting up Kind Kubernetes Cluster"
 
-if kind get clusters | grep -q "^kind$"; then
-    print_info "Kind cluster already exists"
+# Determine cluster name from config or use default
+CLUSTER_NAME="kind"
+if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
+    CLUSTER_NAME=$(grep "^name:" "$PROJECT_ROOT/kind-config.yaml" | awk '{print $2}')
+    if [ -z "$CLUSTER_NAME" ]; then
+        CLUSTER_NAME="kind"
+    fi
+fi
+
+if kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
+    print_info "Kind cluster '$CLUSTER_NAME' already exists"
     read -p "Do you want to recreate it? (y/n) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        kind delete cluster --name kind
+        kind delete cluster --name "$CLUSTER_NAME"
         print_success "Deleted existing cluster"
     fi
 fi
 
-if ! kind get clusters | grep -q "^kind$"; then
-    print_info "Creating Kind cluster..."
+if ! kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
+    print_info "Creating Kind cluster '$CLUSTER_NAME'..."
     if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
         kind create cluster --config "$PROJECT_ROOT/kind-config.yaml"
     else
@@ -236,7 +253,7 @@ if ! kind get clusters | grep -q "^kind$"; then
 fi
 
 # Verify kubectl access
-kubectl cluster-info --context kind-kind
+kubectl cluster-info --context "kind-${CLUSTER_NAME}"
 print_success "Kubernetes cluster is accessible"
 
 echo ""
@@ -325,7 +342,7 @@ else
         # Fallback: Start basic SonarQube
         docker run -d \
             --name sonarqube \
-            -p 9000:9000 \
+            -p 8090:9000 \
             -v sonarqube_data:/opt/sonarqube/data \
             -v sonarqube_logs:/opt/sonarqube/logs \
             -v sonarqube_extensions:/opt/sonarqube/extensions \
@@ -335,7 +352,7 @@ else
 fi
 
 # Wait for SonarQube
-wait_for_service "http://localhost:9000" "SonarQube"
+wait_for_service "http://localhost:8090" "SonarQube"
 
 echo ""
 
@@ -357,13 +374,126 @@ fi
 
 # Wait for ArgoCD pods
 print_info "Waiting for ArgoCD pods to be ready..."
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+sleep 10  # Give pods time to start
+if kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s 2>/dev/null; then
+    print_success "ArgoCD pods are ready"
+else
+    print_warning "ArgoCD pods are still starting. Continuing anyway..."
+fi
 
 # Get ArgoCD admin password
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
 print_success "ArgoCD admin password: $ARGOCD_PASSWORD"
 
 print_info "To access ArgoCD, run: kubectl port-forward svc/argocd-server -n argocd 8080:443"
+
+echo ""
+
+################################################################################
+# Step 7.5: Configure Harbor-Kind Integration
+################################################################################
+
+print_header "Step 7.5: Configuring Harbor-Kind Integration"
+
+if [ -f "$SCRIPT_DIR/configure-kind-harbor-access.sh" ]; then
+    print_info "Configuring Kind cluster to access Harbor registry..."
+    bash "$SCRIPT_DIR/configure-kind-harbor-access.sh"
+    print_success "Harbor-Kind integration configured"
+else
+    print_warning "Harbor-Kind integration script not found. Manual configuration needed"
+    print_info "See docs/Harbor-Kind-Integration.md for details"
+fi
+
+echo ""
+
+################################################################################
+# Step 7.6: Setup Grafana, Loki & Prometheus (Observability Stack)
+################################################################################
+
+print_header "Step 7.6: Setting up Observability Stack"
+
+# Setup Loki (Log Aggregation)
+if [ -f "$PROJECT_ROOT/k8s/grafana/setup-loki.sh" ]; then
+    print_info "Installing Loki log aggregation system..."
+    cd "$PROJECT_ROOT/k8s/grafana"
+    chmod +x setup-loki.sh
+    ./setup-loki.sh
+    cd "$PROJECT_ROOT"
+    print_success "Loki installed in logging namespace"
+else
+    print_warning "Loki setup script not found at k8s/grafana/setup-loki.sh"
+fi
+
+# Setup Prometheus (Metrics Collection)
+if [ -f "$PROJECT_ROOT/k8s/grafana/setup-prometheus.sh" ]; then
+    print_info "Installing Prometheus metrics collection..."
+    cd "$PROJECT_ROOT/k8s/grafana"
+    chmod +x setup-prometheus.sh
+    ./setup-prometheus.sh
+    cd "$PROJECT_ROOT"
+    print_success "Prometheus installed in monitoring namespace"
+else
+    print_warning "Prometheus setup script not found at k8s/grafana/setup-prometheus.sh"
+fi
+
+# Setup Grafana (Visualization Dashboard)
+if [ -f "$PROJECT_ROOT/k8s/grafana/setup-grafana-docker.sh" ]; then
+    print_info "Setting up Grafana visualization platform..."
+    cd "$PROJECT_ROOT/k8s/grafana"
+    chmod +x setup-grafana-docker.sh
+    ./setup-grafana-docker.sh
+    cd "$PROJECT_ROOT"
+    print_success "Grafana started on Docker Desktop"
+    print_info "Access Grafana at http://localhost:3000 (admin/admin)"
+else
+    print_warning "Grafana setup script not found at k8s/grafana/setup-grafana-docker.sh"
+fi
+
+# Setup Port Forwarding for Monitoring Services
+if [ -f "$PROJECT_ROOT/k8s/k8s-permissions_port-forward.sh" ]; then
+    print_info "Starting port forwarding for Loki, Prometheus, and ArgoCD..."
+    cd "$PROJECT_ROOT"
+    chmod +x k8s/k8s-permissions_port-forward.sh
+    ./k8s/k8s-permissions_port-forward.sh start
+    print_success "Port forwarding enabled:"
+    print_info "  - Loki:       http://localhost:31000"
+    print_info "  - Prometheus: http://localhost:30090"
+    print_info "  - ArgoCD:     https://localhost:8090"
+else
+    print_warning "Port forwarding script not found at k8s/k8s-permissions_port-forward.sh"
+    print_info "Manual port forwarding may be required"
+fi
+
+echo ""
+
+################################################################################
+# Step 7.7: Setup Kyverno Policy Engine
+################################################################################
+
+print_header "Step 7.7: Setting up Kyverno Policy Engine"
+
+if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
+    print_info "Installing Kyverno policy engine..."
+    cd "$PROJECT_ROOT/k8s/kyverno"
+    chmod +x install/setup-kyverno.sh
+    ./install/setup-kyverno.sh
+    cd "$PROJECT_ROOT"
+    print_success "Kyverno installed in kyverno namespace"
+
+    # Deploy policies
+    print_info "Deploying Kyverno policies via ArgoCD..."
+    if kubectl get namespace argocd &> /dev/null; then
+        kubectl apply -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml"
+        print_success "Kyverno policies deployed via GitOps"
+        print_info "Policies are in Audit mode - violations logged but not blocked"
+    else
+        print_warning "ArgoCD not found. Deploy policies manually:"
+        print_info "  kubectl apply -f k8s/kyverno/policies/ -R"
+    fi
+else
+    print_warning "Kyverno setup script not found at k8s/kyverno/install/setup-kyverno.sh"
+    print_info "Skip Kyverno installation or install manually"
+fi
 
 echo ""
 
@@ -400,16 +530,27 @@ echo ""
 echo -e "${GREEN}All services are now running!${NC}"
 echo ""
 echo "Service URLs:"
-echo "  - Jenkins:   http://localhost:8080"
-echo "  - Harbor:    http://localhost:8082"
-echo "  - SonarQube: http://localhost:9000"
-echo "  - ArgoCD:    Run 'kubectl port-forward svc/argocd-server -n argocd 8080:443'"
+echo "  - Jenkins:    http://localhost:8080"
+echo "  - Harbor:     http://localhost:8082"
+echo "  - SonarQube:  http://localhost:8090"
+echo "  - Grafana:    http://localhost:3000"
+echo "  - Loki:       http://localhost:31000"
+echo "  - Prometheus: http://localhost:30090"
+echo "  - ArgoCD:     https://localhost:8090"
 echo ""
 echo "Credentials:"
 echo "  - Jenkins:   admin / $JENKINS_PASSWORD"
 echo "  - Harbor:    admin / Harbor12345"
 echo "  - SonarQube: admin / admin (change on first login)"
+echo "  - Grafana:   admin / admin (change on first login)"
 echo "  - ArgoCD:    admin / $ARGOCD_PASSWORD"
+echo ""
+echo "Kubernetes Components:"
+echo "  - Kind cluster running (kubectl context: kind-kind)"
+echo "  - Kyverno policy engine (namespace: kyverno)"
+echo "  - Loki log aggregation (namespace: logging)"
+echo "  - Prometheus metrics (namespace: monitoring)"
+echo "  - ArgoCD GitOps (namespace: argocd)"
 echo ""
 echo "Next steps:"
 echo "  1. Configure Jenkins pipelines"
@@ -419,10 +560,14 @@ echo "     - Via UI: http://127.0.0.1:8082 (admin/Harbor12345) > Projects > NEW 
 echo "     - Via script: cd scripts && ./create-harbor-robot.sh (also creates robot account)"
 echo "  4. Configure SonarQube quality gates"
 echo "  5. Deploy applications via ArgoCD"
+echo "  6. Monitor applications with Grafana dashboards"
+echo "  7. Review Kyverno policy reports: kubectl get policyreports -A"
 echo ""
 echo "For more information, see:"
-echo "  - docs/Lab-Setup-Guide.md"
+echo "  - docs/#Lab-Setup-Guide.md (Complete 11-phase guide)"
 echo "  - docs/Architecture-Diagram.md"
+echo "  - docs/Grafana-Loki.md (Observability stack)"
+echo "  - k8s/kyverno/README.md (Policy engine guide)"
 echo "  - docs/Troubleshooting.md"
 echo ""
 print_success "Happy learning!"
