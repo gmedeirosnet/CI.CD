@@ -62,13 +62,17 @@ if docker ps | grep -q "sonarqube"; then
     echo -e "${GREEN}✓ SonarQube is already running${NC}"
 else
     echo "Starting SonarQube and PostgreSQL..."
-    docker-compose -f sonar-compose.yml up -d
+
+    # Get script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    docker-compose -f "$SCRIPT_DIR/sonar-compose.yml" up -d
     echo -e "${GREEN}✓ Containers started${NC}"
     echo ""
     echo -e "${YELLOW}Waiting for SonarQube to be ready (this may take 2-3 minutes)...${NC}"
 
     for i in {1..60}; do
-        if curl -sf http://localhost:9000/api/system/status | grep -q '"status":"UP"'; then
+        if curl -sf http://localhost:8090/api/system/status | grep -q '"status":"UP"'; then
             echo -e "${GREEN}✓ SonarQube is operational!${NC}"
             break
         fi

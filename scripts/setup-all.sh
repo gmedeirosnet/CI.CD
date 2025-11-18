@@ -63,8 +63,12 @@ wait_for_service() {
     print_info "Waiting for $service_name to be ready..."
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -f "$url" > /dev/null 2>&1; then
-            print_success "$service_name is ready!"
+        # Get HTTP status code
+        local http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null)
+
+        # Accept 200 (OK), 302 (Redirect), 403 (Auth required - Jenkins), 401 (Unauthorized)
+        if [[ "$http_code" =~ ^(200|302|401|403)$ ]]; then
+            print_success "$service_name is ready! (HTTP $http_code)"
             return 0
         fi
         echo -n "."
@@ -370,10 +374,15 @@ fi
 
 # Wait for ArgoCD pods
 print_info "Waiting for ArgoCD pods to be ready..."
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+sleep 10  # Give pods time to start
+if kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s 2>/dev/null; then
+    print_success "ArgoCD pods are ready"
+else
+    print_warning "ArgoCD pods are still starting. Continuing anyway..."
+fi
 
 # Get ArgoCD admin password
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
 print_success "ArgoCD admin password: $ARGOCD_PASSWORD"
 
 print_info "To access ArgoCD, run: kubectl port-forward svc/argocd-server -n argocd 8080:443"
