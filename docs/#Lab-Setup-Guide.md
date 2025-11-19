@@ -1107,16 +1107,88 @@ argocd app get kyverno-policies
 - ✅ Full audit trail of policy changes
 - ✅ Easy rollback to previous versions
 
+**ArgoCD Application Configuration** (`argocd-apps/kyverno-policies.yaml`):
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno-policies
+  namespace: argocd
+  labels:
+    app: kyverno
+    managed-by: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/gmedeirosnet/CI.CD
+    targetRevision: main
+    path: k8s/kyverno/policies
+    directory:
+      recurse: true  # Include all subdirectories
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+
+  syncPolicy:
+    automated:
+      prune: true      # Remove resources not in Git
+      selfHeal: true   # Revert manual changes
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false  # Namespace already exists
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore status changes (updated by Kyverno)
+  ignoreDifferences:
+  - group: kyverno.io
+    kind: ClusterPolicy
+    jsonPointers:
+    - /status
+```
+
+**Configuration Details:**
+- **Source**: Pulls policies from `k8s/kyverno/policies` directory in main branch
+- **Automated Sync**: Continuously monitors Git for changes
+- **Prune**: Removes policies deleted from Git
+- **Self-Heal**: Reverts manual kubectl changes back to Git state
+- **Retry Logic**: Automatic retry with exponential backoff
+- **Status Ignore**: Prevents unnecessary syncs from Kyverno status updates
+
 **Verify ArgoCD deployment:**
 ```bash
 # Check application status
 argocd app get kyverno-policies
+
+# Expected output:
+# Name:               kyverno-policies
+# Project:            default
+# Server:             https://kubernetes.default.svc
+# Namespace:          kyverno
+# URL:                https://localhost:8090/applications/kyverno-policies
+# Repo:               https://github.com/gmedeirosnet/CI.CD
+# Target:             main
+# Path:               k8s/kyverno/policies
+# SyncWindow:         Sync Allowed
+# Sync Policy:        Automated (Prune)
+# Sync Status:        Synced to main
+# Health Status:      Healthy
 
 # View deployed policies
 kubectl get clusterpolicies
 
 # Check ArgoCD application health
 kubectl get application kyverno-policies -n argocd -o yaml
+
+# View sync history
+argocd app history kyverno-policies
 ```
 
 **Policy Details:**

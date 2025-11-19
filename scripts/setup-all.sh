@@ -512,12 +512,27 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
     cd "$PROJECT_ROOT"
     print_success "Kyverno installed in kyverno namespace"
 
-    # Deploy policies
+    # Deploy policies via ArgoCD GitOps
     print_info "Deploying Kyverno policies via ArgoCD..."
     if kubectl get namespace argocd &> /dev/null; then
+        # Apply ArgoCD Application for Kyverno policies
         kubectl apply -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml"
+        print_success "Kyverno policies ArgoCD Application created"
+
+        # Wait for initial sync
+        print_info "Waiting for ArgoCD to sync policies..."
+        sleep 5
+
+        # Check sync status
+        if command -v argocd &> /dev/null; then
+            argocd app sync kyverno-policies --timeout 60 2>/dev/null || true
+            argocd app wait kyverno-policies --timeout 60 2>/dev/null || print_warning "ArgoCD sync in progress"
+        fi
+
         print_success "Kyverno policies deployed via GitOps"
         print_info "Policies are in Audit mode - violations logged but not blocked"
+        print_info "View policies: kubectl get clusterpolicies"
+        print_info "View in ArgoCD UI: https://localhost:8090/applications/kyverno-policies"
     else
         print_warning "ArgoCD not found. Deploy policies manually:"
         print_info "  kubectl apply -f k8s/kyverno/policies/ -R"
