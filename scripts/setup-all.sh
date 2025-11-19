@@ -80,6 +80,31 @@ wait_for_service() {
     return 1
 }
 
+update_env_file() {
+    local key=$1
+    local value=$2
+    local env_file="$PROJECT_ROOT/.env"
+
+    if [ -f "$env_file" ]; then
+        # Check if key exists in file
+        if grep -q "^${key}=" "$env_file"; then
+            # Update existing value (macOS compatible)
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^${key}=.*|${key}=${value}|" "$env_file"
+            else
+                sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+            fi
+            print_success "Updated $key in .env file"
+        else
+            # Add new key-value pair
+            echo "${key}=${value}" >> "$env_file"
+            print_success "Added $key to .env file"
+        fi
+    else
+        print_warning ".env file not found, skipping update for $key"
+    fi
+}
+
 ################################################################################
 # Main Setup
 ################################################################################
@@ -230,6 +255,8 @@ if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
     if [ -z "$CLUSTER_NAME" ]; then
         CLUSTER_NAME="kind"
     fi
+    # Update .env file with cluster name
+    update_env_file "KIND_CLUSTER_NAME" "$CLUSTER_NAME"
 fi
 
 if kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
@@ -322,6 +349,8 @@ wait_for_service "http://localhost:8080" "Jenkins"
 if docker exec jenkins test -f /var/jenkins_home/secrets/initialAdminPassword; then
     JENKINS_PASSWORD=$(docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword)
     print_success "Jenkins initial admin password: $JENKINS_PASSWORD"
+    # Update .env file with Jenkins password
+    update_env_file "JENKINS_PASSWORD" "$JENKINS_PASSWORD"
 fi
 
 echo ""
@@ -384,6 +413,8 @@ fi
 # Get ArgoCD admin password
 ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
 print_success "ArgoCD admin password: $ARGOCD_PASSWORD"
+# Update .env file with ArgoCD password
+update_env_file "ARGOCD_ADMIN_PASSWORD" "$ARGOCD_PASSWORD"
 
 print_info "To access ArgoCD, run: kubectl port-forward svc/argocd-server -n argocd 8080:443"
 
@@ -441,7 +472,8 @@ if [ -f "$PROJECT_ROOT/k8s/grafana/setup-grafana-docker.sh" ]; then
     print_info "Setting up Grafana visualization platform..."
     cd "$PROJECT_ROOT/k8s/grafana"
     chmod +x setup-grafana-docker.sh
-    ./setup-grafana-docker.sh
+    # Automatically select option 1 (NodePort) for Loki access
+    echo "1" | ./setup-grafana-docker.sh
     cd "$PROJECT_ROOT"
     print_success "Grafana started on Docker Desktop"
     print_info "Access Grafana at http://localhost:3000 (admin/admin)"
