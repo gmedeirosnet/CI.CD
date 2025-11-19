@@ -119,7 +119,7 @@ echo -e "${YELLOW}Step 5: Waiting for Kyverno pods to be ready...${NC}"
 kubectl wait --for=condition=ready pod \
     -l app.kubernetes.io/name=kyverno \
     -n kyverno \
-    --timeout=300s
+    --timeout=600s
 
 echo -e "${GREEN}✓ Kyverno is ready${NC}"
 echo ""
