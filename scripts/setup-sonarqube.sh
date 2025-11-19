@@ -72,7 +72,7 @@ else
     echo -e "${YELLOW}Waiting for SonarQube to be ready (this may take 2-3 minutes)...${NC}"
 
     for i in {1..60}; do
-        if curl -sf http://localhost:8090/api/system/status | grep -q '"status":"UP"'; then
+        if curl -sf http://localhost:9000/api/system/status | grep -q '"status":"UP"'; then
             echo -e "${GREEN}✓ SonarQube is operational!${NC}"
             break
         fi
@@ -89,14 +89,14 @@ echo -e "${GREEN}SonarQube Setup Complete!${NC}"
 echo "=========================================="
 echo ""
 echo "Access Information:"
-echo "  URL:      http://localhost:8090"
+echo "  URL:      http://localhost:9000"
 echo "  Username: admin"
 echo "  Password: admin"
 echo ""
 echo -e "${YELLOW}⚠️  IMPORTANT: Change the default password on first login!${NC}"
 echo ""
 echo "Next Steps:"
-echo "  1. Open http://localhost:8090 in your browser"
+echo "  1. Open http://localhost:9000 in your browser"
 echo "  2. Login with admin/admin"
 echo "  3. Change the password when prompted"
 echo "  4. Generate an authentication token:"

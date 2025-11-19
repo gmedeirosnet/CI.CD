@@ -371,7 +371,7 @@ else
         # Fallback: Start basic SonarQube
         docker run -d \
             --name sonarqube \
-            -p 8090:9000 \
+            -p 9000:9000 \
             -v sonarqube_data:/opt/sonarqube/data \
             -v sonarqube_logs:/opt/sonarqube/logs \
             -v sonarqube_extensions:/opt/sonarqube/extensions \
@@ -381,7 +381,7 @@ else
 fi
 
 # Wait for SonarQube
-wait_for_service "http://localhost:8090" "SonarQube"
+wait_for_service "http://localhost:9000" "SonarQube"
 
 echo ""
 
