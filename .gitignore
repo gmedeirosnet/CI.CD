@@ -240,6 +240,7 @@ temp/
 *.temp
 .cache/
 generate-release-notes.sh
+.venv
 
 # Database
 *.sql
