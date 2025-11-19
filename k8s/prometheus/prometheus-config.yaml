@@ -111,3 +111,9 @@ data:
       - job_name: 'loki'
         static_configs:
           - targets: ['loki.logging.svc.cluster.local:3100']
+
+      # Kyverno metrics
+      - job_name: 'kyverno'
+        static_configs:
+          - targets: ['kyverno-metrics.kyverno.svc.cluster.local:8000']
+        scrape_interval: 30s
