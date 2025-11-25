@@ -1968,6 +1968,7 @@ docker exec -it app-demo-control-plane bash
     - K8S Dashboard: ID 15661
     - Loki Logging Dashboard: ID 23789
     - Node Exporter Full: ID 1860
+    - Kyverno Monitoring Dashboard: ID 15987
 4. Implement blue-green deployments in local cluster
 5. Add integration tests
 6. Configure backup strategies for local development
