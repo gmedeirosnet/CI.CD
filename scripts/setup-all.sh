@@ -238,7 +238,18 @@ fi
 
 # Load environment variables
 if [ -f "$PROJECT_ROOT/.env" ]; then
-    export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
+    # Load .env safely, ignoring invalid lines
+    set -a
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^#.*$ ]] && continue
+        [[ -z "$key" ]] && continue
+        # Skip lines with invalid variable names
+        if [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+            export "$key=$value"
+        fi
+    done < <(grep -v '^#' "$PROJECT_ROOT/.env" | grep -v '^$')
+    set +a
     print_success "Environment variables loaded"
 fi
 
