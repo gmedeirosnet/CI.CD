@@ -281,18 +281,42 @@ if kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
 fi
 
 if ! kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
-    print_info "Creating Kind cluster '$CLUSTER_NAME'..."
+    print_info "Creating Kind cluster '${CLUSTER_NAME}'..."
     if [ -f "$PROJECT_ROOT/kind-config.yaml" ]; then
-        kind create cluster --config "$PROJECT_ROOT/kind-config.yaml"
+        if ! kind create cluster --config "$PROJECT_ROOT/kind-config.yaml"; then
+            print_error "Failed to create Kind cluster"
+            exit 1
+        fi
     else
-        kind create cluster
+        if ! kind create cluster; then
+            print_error "Failed to create Kind cluster"
+            exit 1
+        fi
     fi
     print_success "Kind cluster created"
+
+    # Wait for cluster to be ready
+    print_info "Waiting for cluster nodes to be ready..."
+    sleep 10
+    if ! kubectl wait --for=condition=ready nodes --all --timeout=120s; then
+        print_warning "Some nodes may not be ready yet"
+    fi
 fi
 
 # Verify kubectl access
-kubectl cluster-info --context "kind-${CLUSTER_NAME}"
+if ! kubectl cluster-info --context "kind-${CLUSTER_NAME}" &> /dev/null; then
+    print_error "Cannot access Kubernetes cluster"
+    exit 1
+fi
 print_success "Kubernetes cluster is accessible"
+
+# Verify nodes are ready
+NODE_COUNT=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+if [ "$NODE_COUNT" -eq 0 ]; then
+    print_error "No nodes found in cluster"
+    exit 1
+fi
+print_success "Cluster has $NODE_COUNT node(s) running"
 
 echo ""
 
@@ -308,18 +332,36 @@ if [ -d "$PROJECT_ROOT/harbor" ]; then
     # Check if Harbor is already running
     if docker ps | grep -q "harbor"; then
         print_info "Harbor is already running"
+        HARBOR_RUNNING=true
     else
         print_info "Starting Harbor..."
         if [ -f "docker-compose.yml" ]; then
-            docker-compose up -d
-            print_success "Harbor started"
+            if ! docker-compose up -d; then
+                print_error "Failed to start Harbor"
+                cd "$PROJECT_ROOT"
+                exit 1
+            fi
+            print_success "Harbor containers started"
+            HARBOR_RUNNING=true
         else
             print_warning "Harbor docker-compose.yml not found. Run install.sh first"
+            HARBOR_RUNNING=false
         fi
     fi
 
     # Wait for Harbor to be ready
-    wait_for_service "http://localhost:8082" "Harbor"
+    if [ "$HARBOR_RUNNING" = true ]; then
+        if ! wait_for_service "http://localhost:8082" "Harbor"; then
+            print_error "Harbor failed to become ready"
+            docker ps | grep harbor
+            cd "$PROJECT_ROOT"
+            exit 1
+        fi
+
+        # Verify Harbor containers
+        HARBOR_CONTAINERS=$(docker ps --filter "name=harbor" --format "{{.Names}}" | wc -l | tr -d ' ')
+        print_success "Harbor is running with $HARBOR_CONTAINERS containers"
+    fi
 
     cd "$PROJECT_ROOT"
 else
@@ -336,32 +378,59 @@ print_header "Step 5: Setting up Jenkins"
 
 if docker ps | grep -q "jenkins"; then
     print_info "Jenkins is already running"
+    JENKINS_RUNNING=true
 else
     print_info "Starting Jenkins..."
     if [ -f "$SCRIPT_DIR/setup-jenkins-docker.sh" ]; then
-        bash "$SCRIPT_DIR/setup-jenkins-docker.sh"
+        if ! bash "$SCRIPT_DIR/setup-jenkins-docker.sh"; then
+            print_error "Failed to start Jenkins via setup script"
+            exit 1
+        fi
     else
         # Fallback: Start basic Jenkins
-        docker run -d \
+        if ! docker run -d \
             --name jenkins \
             -p 8080:8080 \
             -p 50000:50000 \
             -v jenkins_home:/var/jenkins_home \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            jenkins/jenkins:lts
-        print_success "Jenkins started"
+            jenkins/jenkins:lts; then
+            print_error "Failed to start Jenkins container"
+            exit 1
+        fi
+        print_success "Jenkins container started"
     fi
+    JENKINS_RUNNING=true
 fi
 
 # Wait for Jenkins
-wait_for_service "http://localhost:8080" "Jenkins"
+if [ "$JENKINS_RUNNING" = true ]; then
+    if ! wait_for_service "http://localhost:8080" "Jenkins"; then
+        print_error "Jenkins failed to become ready"
+        docker logs jenkins --tail 50
+        exit 1
+    fi
 
-# Get initial admin password
-if docker exec jenkins test -f /var/jenkins_home/secrets/initialAdminPassword; then
-    JENKINS_PASSWORD=$(docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword)
-    print_success "Jenkins initial admin password: $JENKINS_PASSWORD"
-    # Update .env file with Jenkins password
-    update_env_file "JENKINS_PASSWORD" "$JENKINS_PASSWORD"
+    # Get initial admin password
+    print_info "Retrieving Jenkins admin password..."
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt 10 ]; do
+        if docker exec jenkins test -f /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null; then
+            JENKINS_PASSWORD=$(docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword 2>/dev/null)
+            if [ -n "$JENKINS_PASSWORD" ]; then
+                print_success "Jenkins initial admin password: $JENKINS_PASSWORD"
+                update_env_file "JENKINS_PASSWORD" "$JENKINS_PASSWORD"
+                break
+            fi
+        fi
+        sleep 2
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+
+    if [ -z "$JENKINS_PASSWORD" ]; then
+        print_warning "Could not retrieve Jenkins password automatically"
+        print_info "Run: docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
+    fi
 fi
 
 echo ""
@@ -374,25 +443,40 @@ print_header "Step 6: Setting up SonarQube"
 
 if docker ps | grep -q "sonarqube"; then
     print_info "SonarQube is already running"
+    SONARQUBE_RUNNING=true
 else
     print_info "Starting SonarQube..."
     if [ -f "$SCRIPT_DIR/setup-sonarqube.sh" ]; then
-        bash "$SCRIPT_DIR/setup-sonarqube.sh"
+        if ! bash "$SCRIPT_DIR/setup-sonarqube.sh"; then
+            print_error "Failed to start SonarQube via setup script"
+            exit 1
+        fi
     else
         # Fallback: Start basic SonarQube
-        docker run -d \
+        if ! docker run -d \
             --name sonarqube \
             -p 9000:9000 \
             -v sonarqube_data:/opt/sonarqube/data \
             -v sonarqube_logs:/opt/sonarqube/logs \
             -v sonarqube_extensions:/opt/sonarqube/extensions \
-            sonarqube:latest
-        print_success "SonarQube started"
+            sonarqube:latest; then
+            print_error "Failed to start SonarQube container"
+            exit 1
+        fi
+        print_success "SonarQube container started"
     fi
+    SONARQUBE_RUNNING=true
 fi
 
 # Wait for SonarQube
-wait_for_service "http://localhost:9000" "SonarQube"
+if [ "$SONARQUBE_RUNNING" = true ]; then
+    if ! wait_for_service "http://localhost:9000" "SonarQube"; then
+        print_error "SonarQube failed to become ready"
+        docker logs sonarqube --tail 50
+        exit 1
+    fi
+    print_success "SonarQube is operational"
+fi
 
 echo ""
 
@@ -405,27 +489,62 @@ print_header "Step 7: Setting up ArgoCD"
 # Check if ArgoCD namespace exists
 if kubectl get namespace argocd &> /dev/null; then
     print_info "ArgoCD namespace already exists"
+    ARGOCD_INSTALLED=true
 else
     print_info "Creating ArgoCD namespace..."
-    kubectl create namespace argocd
-    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-    print_success "ArgoCD installed"
+    if ! kubectl create namespace argocd; then
+        print_error "Failed to create ArgoCD namespace"
+        exit 1
+    fi
+
+    print_info "Installing ArgoCD..."
+    if ! kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml; then
+        print_error "Failed to install ArgoCD"
+        exit 1
+    fi
+    print_success "ArgoCD manifests applied"
+    ARGOCD_INSTALLED=true
 fi
 
 # Wait for ArgoCD pods
-print_info "Waiting for ArgoCD pods to be ready..."
-sleep 10  # Give pods time to start
-if kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s 2>/dev/null; then
-    print_success "ArgoCD pods are ready"
-else
-    print_warning "ArgoCD pods are still starting. Continuing anyway..."
-fi
+if [ "$ARGOCD_INSTALLED" = true ]; then
+    print_info "Waiting for ArgoCD pods to be ready..."
+    sleep 10  # Give pods time to start
 
-# Get ArgoCD admin password
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d)
-print_success "ArgoCD admin password: $ARGOCD_PASSWORD"
-# Update .env file with ArgoCD password
-update_env_file "ARGOCD_ADMIN_PASSWORD" "$ARGOCD_PASSWORD"
+    if kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s 2>/dev/null; then
+        print_success "ArgoCD pods are ready"
+    else
+        print_warning "ArgoCD pods are still starting. Checking status..."
+        kubectl get pods -n argocd
+    fi
+
+    # Verify critical pods
+    ARGOCD_PODS=$(kubectl get pods -n argocd --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$ARGOCD_PODS" -eq 0 ]; then
+        print_error "No ArgoCD pods found"
+        exit 1
+    fi
+    print_success "ArgoCD has $ARGOCD_PODS pod(s) running"
+
+    # Get ArgoCD admin password
+    print_info "Retrieving ArgoCD admin password..."
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt 30 ]; do
+        ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null)
+        if [ -n "$ARGOCD_PASSWORD" ]; then
+            print_success "ArgoCD admin password: $ARGOCD_PASSWORD"
+            update_env_file "ARGOCD_ADMIN_PASSWORD" "$ARGOCD_PASSWORD"
+            break
+        fi
+        sleep 2
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+
+    if [ -z "$ARGOCD_PASSWORD" ]; then
+        print_warning "Could not retrieve ArgoCD password automatically"
+        print_info "Run: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+    fi
+fi
 
 print_info "To access ArgoCD, run: kubectl port-forward svc/argocd-server -n argocd 8080:443"
 
@@ -519,31 +638,62 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
     print_info "Installing Kyverno policy engine..."
     cd "$PROJECT_ROOT/k8s/kyverno"
     chmod +x install/setup-kyverno.sh
-    ./install/setup-kyverno.sh
+
+    if ! ./install/setup-kyverno.sh; then
+        print_error "Failed to install Kyverno"
+        cd "$PROJECT_ROOT"
+        exit 1
+    fi
+
     cd "$PROJECT_ROOT"
     print_success "Kyverno installed in kyverno namespace"
+
+    # Verify Kyverno installation
+    print_info "Verifying Kyverno installation..."
+    sleep 5
+    KYVERNO_PODS=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep Running | wc -l | tr -d ' ')
+    if [ "$KYVERNO_PODS" -eq 0 ]; then
+        print_warning "No running Kyverno pods found"
+        kubectl get pods -n kyverno
+    else
+        print_success "Kyverno has $KYVERNO_PODS pod(s) running"
+    fi
 
     # Deploy policies via ArgoCD GitOps
     print_info "Deploying Kyverno policies via ArgoCD..."
     if kubectl get namespace argocd &> /dev/null; then
         # Apply ArgoCD Application for Kyverno policies
-        kubectl apply -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml"
-        print_success "Kyverno policies ArgoCD Application created"
+        if [ -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml" ]; then
+            if ! kubectl apply -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml"; then
+                print_error "Failed to create Kyverno policies ArgoCD Application"
+            else
+                print_success "Kyverno policies ArgoCD Application created"
 
-        # Wait for initial sync
-        print_info "Waiting for ArgoCD to sync policies..."
-        sleep 5
+                # Wait for initial sync
+                print_info "Waiting for ArgoCD to sync policies..."
+                sleep 5
 
-        # Check sync status
-        if command -v argocd &> /dev/null; then
-            argocd app sync kyverno-policies --timeout 60 2>/dev/null || true
-            argocd app wait kyverno-policies --timeout 60 2>/dev/null || print_warning "ArgoCD sync in progress"
+                # Check sync status
+                if command -v argocd &> /dev/null; then
+                    argocd app sync kyverno-policies --timeout 60 2>/dev/null || true
+                    argocd app wait kyverno-policies --timeout 60 2>/dev/null || print_warning "ArgoCD sync in progress"
+                fi
+
+                # Verify policies deployed
+                POLICY_COUNT=$(kubectl get clusterpolicies --no-headers 2>/dev/null | wc -l | tr -d ' ')
+                if [ "$POLICY_COUNT" -gt 0 ]; then
+                    print_success "Kyverno policies deployed via GitOps ($POLICY_COUNT policies)"
+                else
+                    print_warning "No cluster policies found yet"
+                fi
+
+                print_info "Policies are in Audit mode - violations logged but not blocked"
+                print_info "View policies: kubectl get clusterpolicies"
+                print_info "View in ArgoCD UI: https://localhost:8090/applications/kyverno-policies"
+            fi
+        else
+            print_warning "kyverno-policies.yaml not found"
         fi
-
-        print_success "Kyverno policies deployed via GitOps"
-        print_info "Policies are in Audit mode - violations logged but not blocked"
-        print_info "View policies: kubectl get clusterpolicies"
-        print_info "View in ArgoCD UI: https://localhost:8090/applications/kyverno-policies"
     else
         print_warning "ArgoCD not found. Deploy policies manually:"
         print_info "  kubectl apply -f k8s/kyverno/policies/ -R"
@@ -585,7 +735,44 @@ echo ""
 print_header "Setup Complete!"
 
 echo ""
-echo -e "${GREEN}All services are now running!${NC}"
+print_info "Performing final validation..."
+echo ""
+
+# Check Docker services
+DOCKER_SERVICES=0
+for service in jenkins harbor sonarqube; do
+    if docker ps | grep -q "$service"; then
+        ((DOCKER_SERVICES++))
+    fi
+done
+
+# Check Kubernetes namespaces
+K8S_NAMESPACES=0
+for ns in argocd kyverno logging monitoring; do
+    if kubectl get namespace "$ns" &> /dev/null; then
+        ((K8S_NAMESPACES++))
+    fi
+done
+
+# Check Kind cluster
+if kind get clusters | grep -q "^${CLUSTER_NAME}$"; then
+    CLUSTER_STATUS="✓ Running"
+else
+    CLUSTER_STATUS="✗ Not Found"
+fi
+
+echo "Validation Results:"
+echo "  - Docker Services:    $DOCKER_SERVICES/3 running"
+echo "  - K8s Namespaces:     $K8S_NAMESPACES/4 created"
+echo "  - Kind Cluster:       $CLUSTER_STATUS"
+echo ""
+
+if [ $DOCKER_SERVICES -lt 2 ] || [ $K8S_NAMESPACES -lt 2 ]; then
+    print_warning "Some services may not have started correctly"
+    print_info "Check logs with: docker logs <container-name>"
+else
+    echo -e "${GREEN}All services are now running!${NC}"
+fi
 echo ""
 echo "Service URLs:"
 echo "  - Jenkins:    http://localhost:8080"
