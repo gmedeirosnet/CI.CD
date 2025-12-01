@@ -634,12 +634,26 @@ echo ""
 
 print_header "Step 7.7: Setting up Kyverno Policy Engine"
 
-if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
+# Check if Kyverno is already installed
+if kubectl get namespace kyverno &> /dev/null && helm list -n kyverno 2>/dev/null | grep -q "^kyverno"; then
+    print_info "Kyverno is already installed"
+    KYVERNO_INSTALLED=true
+
+    # Verify Kyverno is running
+    KYVERNO_PODS=$(kubectl get pods -n kyverno --no-headers 2>/dev/null | grep Running | wc -l | tr -d ' ')
+    if [ "$KYVERNO_PODS" -eq 0 ]; then
+        print_warning "Kyverno pods are not running properly"
+        kubectl get pods -n kyverno
+    else
+        print_success "Kyverno has $KYVERNO_PODS pod(s) running"
+    fi
+elif [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
     print_info "Installing Kyverno policy engine..."
     cd "$PROJECT_ROOT/k8s/kyverno"
     chmod +x install/setup-kyverno.sh
 
-    if ! ./install/setup-kyverno.sh; then
+    # Run installation script non-interactively by answering 'n' to upgrade prompt
+    if ! echo "n" | ./install/setup-kyverno.sh; then
         print_error "Failed to install Kyverno"
         cd "$PROJECT_ROOT"
         exit 1
@@ -658,12 +672,33 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
     else
         print_success "Kyverno has $KYVERNO_PODS pod(s) running"
     fi
+    KYVERNO_INSTALLED=true
+else
+    print_warning "Kyverno setup script not found at k8s/kyverno/install/setup-kyverno.sh"
+    KYVERNO_INSTALLED=false
+fi
 
-    # Deploy policies via ArgoCD GitOps
+# Deploy policies via ArgoCD GitOps (always attempt if Kyverno is installed)
+if [ "$KYVERNO_INSTALLED" = true ]; then
     print_info "Deploying Kyverno policies via ArgoCD..."
     if kubectl get namespace argocd &> /dev/null; then
-        # Apply ArgoCD Application for Kyverno policies
-        if [ -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml" ]; then
+        # Check if Application already exists
+        if kubectl get application kyverno-policies -n argocd &> /dev/null; then
+            print_info "Kyverno policies Application already exists"
+
+            # Check sync status
+            SYNC_STATUS=$(kubectl get application kyverno-policies -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null)
+            print_info "Current sync status: $SYNC_STATUS"
+
+            # Verify policies deployed
+            POLICY_COUNT=$(kubectl get clusterpolicies --no-headers 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$POLICY_COUNT" -gt 0 ]; then
+                print_success "Kyverno policies are deployed ($POLICY_COUNT policies)"
+            else
+                print_warning "No cluster policies found - ArgoCD may still be syncing"
+            fi
+        elif [ -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml" ]; then
+            # Create new Application
             if ! kubectl apply -f "$PROJECT_ROOT/argocd-apps/kyverno-policies.yaml"; then
                 print_error "Failed to create Kyverno policies ArgoCD Application"
             else
@@ -684,7 +719,7 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
                 if [ "$POLICY_COUNT" -gt 0 ]; then
                     print_success "Kyverno policies deployed via GitOps ($POLICY_COUNT policies)"
                 else
-                    print_warning "No cluster policies found yet"
+                    print_warning "No cluster policies found yet - may need more time to sync"
                 fi
 
                 print_info "Policies are in Audit mode - violations logged but not blocked"
@@ -692,15 +727,14 @@ if [ -f "$PROJECT_ROOT/k8s/kyverno/install/setup-kyverno.sh" ]; then
                 print_info "View in ArgoCD UI: https://localhost:8090/applications/kyverno-policies"
             fi
         else
-            print_warning "kyverno-policies.yaml not found"
+            print_warning "kyverno-policies.yaml not found at $PROJECT_ROOT/argocd-apps/"
         fi
     else
         print_warning "ArgoCD not found. Deploy policies manually:"
         print_info "  kubectl apply -f k8s/kyverno/policies/ -R"
     fi
 else
-    print_warning "Kyverno setup script not found at k8s/kyverno/install/setup-kyverno.sh"
-    print_info "Skip Kyverno installation or install manually"
+    print_warning "Kyverno is not installed - skipping policy deployment"
 fi
 
 echo ""
