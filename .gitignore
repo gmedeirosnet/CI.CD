@@ -141,6 +141,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+jenkins-pipeline.log
 
 # Runtime data
 pids/
@@ -338,3 +339,5 @@ argocd-secret.yaml
 # Custom - Add your specific ignores below
 # ==========================================
 error.log
+instructions/
+copilot-instructions.md
