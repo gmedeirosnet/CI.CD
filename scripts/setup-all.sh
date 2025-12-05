@@ -753,8 +753,23 @@ if [ "$KYVERNO_INSTALLED" = true ]; then
             print_warning "kyverno-policies.yaml not found at $PROJECT_ROOT/argocd-apps/"
         fi
     else
-        print_warning "ArgoCD not found. Deploy policies manually:"
-        print_info "  kubectl apply -f k8s/kyverno/policies/ -R"
+        print_warning "ArgoCD not found. Deploying policies directly via kubectl..."
+        if kubectl apply -f "$PROJECT_ROOT/k8s/kyverno/policies/" -R; then
+            print_success "Kyverno policies deployed"
+
+            # Wait a moment for policies to be processed
+            sleep 3
+
+            # Verify policies deployed
+            POLICY_COUNT=$(kubectl get clusterpolicies --no-headers 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$POLICY_COUNT" -gt 0 ]; then
+                print_success "$POLICY_COUNT cluster policies are active"
+            else
+                print_warning "Policies applied but not yet visible"
+            fi
+        else
+            print_error "Failed to deploy Kyverno policies"
+        fi
     fi
 else
     print_warning "Kyverno is not installed - skipping policy deployment"
