@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install-policy-reporter.sh
-# Installs Policy Reporter for Kyverno policy observability
+# Installs Policy Reporter on Docker Desktop for Kyverno policy observability
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   Policy Reporter Installation for Kyverno                ║${NC}"
+echo -e "${BLUE}║   Policy Reporter Docker Desktop Setup for Kyverno        ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -24,12 +24,19 @@ echo ""
 
 echo -e "${YELLOW}Step 1: Checking prerequisites...${NC}"
 
-# Check if helm is installed
-if ! command -v helm &> /dev/null; then
-    echo -e "${RED}✗ Helm is not installed${NC}"
+# Check if docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}✗ Docker is not installed${NC}"
     exit 1
 fi
-echo -e "${GREEN}✓ Helm is available${NC}"
+echo -e "${GREEN}✓ Docker is available${NC}"
+
+# Check Docker is running
+if ! docker ps &> /dev/null; then
+    echo -e "${RED}✗ Docker daemon is not running${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Docker daemon is running${NC}"
 
 # Check if kubectl is installed
 if ! command -v kubectl &> /dev/null; then
@@ -55,91 +62,255 @@ echo -e "${GREEN}✓ Kyverno is installed${NC}"
 echo ""
 
 ################################################################################
-# Add Policy Reporter Helm Repository
+# Configure Kubernetes API Access
 ################################################################################
 
-echo -e "${YELLOW}Step 2: Adding Policy Reporter Helm repository...${NC}"
+echo -e "${YELLOW}Step 2: Configuring Kubernetes API access...${NC}"
 
-if helm repo list | grep -q "^policy-reporter"; then
-    echo -e "${YELLOW}⚠ Policy Reporter repository already exists, updating...${NC}"
-    helm repo update policy-reporter
-else
-    helm repo add policy-reporter https://kyverno.github.io/policy-reporter
-    echo -e "${GREEN}✓ Policy Reporter repository added${NC}"
+# Get Kind API server endpoint
+KIND_API=$(kubectl cluster-info | grep "control plane" | awk '{print $NF}' | tr -d '\033[0m')
+if [ -z "$KIND_API" ]; then
+    KIND_API="https://127.0.0.1:$(docker port kind-control-plane | grep 6443 | cut -d: -f2)"
+fi
+echo "Kind API Server: $KIND_API"
+
+# Get service account token and CA cert
+echo "Creating service account for Policy Reporter..."
+kubectl create namespace policy-reporter 2>/dev/null || echo "Namespace already exists"
+
+# Create service account
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: policy-reporter
+  namespace: policy-reporter
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policy-reporter
+rules:
+- apiGroups: ["wgpolicyk8s.io"]
+  resources: ["policyreports", "clusterpolicyreports"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["namespaces", "pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: policy-reporter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: policy-reporter
+subjects:
+- kind: ServiceAccount
+  name: policy-reporter
+  namespace: policy-reporter
+EOF
+
+# Wait for token to be created
+sleep 2
+
+# Get token
+TOKEN=$(kubectl create token policy-reporter -n policy-reporter --duration=87600h 2>/dev/null)
+if [ -z "$TOKEN" ]; then
+    echo -e "${YELLOW}⚠ Using legacy token method${NC}"
+    kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: policy-reporter-token
+  namespace: policy-reporter
+  annotations:
+    kubernetes.io/service-account.name: policy-reporter
+type: kubernetes.io/service-account-token
+EOF
+    sleep 2
+    TOKEN=$(kubectl get secret policy-reporter-token -n policy-reporter -o jsonpath='{.data.token}' | base64 -d)
 fi
 
-helm repo update
-echo -e "${GREEN}✓ Helm repositories updated${NC}"
+echo -e "${GREEN}✓ Service account configured${NC}"
 echo ""
 
 ################################################################################
-# Create Namespace
+# Check Loki Access
 ################################################################################
 
-echo -e "${YELLOW}Step 3: Creating policy-reporter namespace...${NC}"
+echo -e "${YELLOW}Step 3: Checking Loki access...${NC}"
 
-if kubectl get namespace policy-reporter &> /dev/null; then
-    echo -e "${YELLOW}⚠ Namespace 'policy-reporter' already exists${NC}"
-else
-    kubectl create namespace policy-reporter
-    echo -e "${GREEN}✓ Namespace 'policy-reporter' created${NC}"
-fi
-echo ""
-
-################################################################################
-# Install Policy Reporter
-################################################################################
-
-echo -e "${YELLOW}Step 4: Installing Policy Reporter...${NC}"
-
-if helm list -n policy-reporter | grep -q "^policy-reporter"; then
-    echo -e "${YELLOW}⚠ Policy Reporter is already installed${NC}"
-    read -p "Do you want to upgrade it? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        helm upgrade policy-reporter policy-reporter/policy-reporter \
-            --namespace policy-reporter \
-            --values "$SCRIPT_DIR/policy-reporter-values.yaml" \
-            --wait \
-            --timeout 5m
-        echo -e "${GREEN}✓ Policy Reporter upgraded${NC}"
+LOKI_URL=""
+if kubectl get svc loki -n logging &> /dev/null; then
+    LOKI_TYPE=$(kubectl get svc loki -n logging -o jsonpath='{.spec.type}')
+    if [ "$LOKI_TYPE" = "NodePort" ]; then
+        LOKI_PORT=$(kubectl get svc loki -n logging -o jsonpath='{.spec.ports[0].nodePort}')
+        LOKI_URL="http://host.docker.internal:$LOKI_PORT"
+        echo -e "${GREEN}✓ Loki accessible via NodePort: $LOKI_URL${NC}"
+    else
+        echo -e "${YELLOW}⚠ Loki is ClusterIP - logging may not work from Docker${NC}"
+        LOKI_URL="http://loki.logging:3100"
     fi
 else
-    helm install policy-reporter policy-reporter/policy-reporter \
-        --namespace policy-reporter \
-        --values "$SCRIPT_DIR/policy-reporter-values.yaml" \
-        --wait \
-        --timeout 5m
-    echo -e "${GREEN}✓ Policy Reporter installed${NC}"
+    echo -e "${YELLOW}⚠ Loki not found - logging disabled${NC}"
 fi
 echo ""
 
 ################################################################################
-# Wait for Deployment
+# Create Docker Compose Configuration
 ################################################################################
 
-echo -e "${YELLOW}Step 5: Waiting for Policy Reporter to be ready...${NC}"
+echo -e "${YELLOW}Step 4: Creating Docker Compose configuration...${NC}"
 
-kubectl wait --for=condition=available \
-    deployment/policy-reporter \
-    -n policy-reporter \
-    --timeout=300s
+cat > "$SCRIPT_DIR/docker-compose.yml" <<EOF
+version: '3.8'
 
-echo -e "${GREEN}✓ Policy Reporter is ready${NC}"
+services:
+  policy-reporter:
+    image: ghcr.io/kyverno/policy-reporter:latest
+    container_name: policy-reporter
+    restart: unless-stopped
+    ports:
+      - "31001:8080"
+    environment:
+      - KUBECONFIG=/config/kubeconfig
+      - API_SERVER=$KIND_API
+      - K8S_SERVICE_ACCOUNT_TOKEN=$TOKEN
+      - LOKI_HOST=${LOKI_URL}
+      - LOKI_PATH=/loki/api/v1/push
+      - LOKI_MINIMUM_PRIORITY=warning
+      - LOKI_SKIP_EXISTING=true
+      - REST_ENABLED=true
+      - METRICS_ENABLED=true
+      - PORT=8080
+    volumes:
+      - ./kubeconfig:/config/kubeconfig:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - policy-reporter
+
+  policy-reporter-ui:
+    image: ghcr.io/kyverno/policy-reporter-ui:latest
+    container_name: policy-reporter-ui
+    restart: unless-stopped
+    ports:
+      - "31002:8080"
+    environment:
+      - POLICY_REPORTER_URL=http://policy-reporter:8080
+      - PORT=8080
+    depends_on:
+      - policy-reporter
+    networks:
+      - policy-reporter
+
+networks:
+  policy-reporter:
+    driver: bridge
+EOF
+
+echo -e "${GREEN}✓ Docker Compose configuration created${NC}"
+echo ""
+
+################################################################################
+# Create Kubeconfig for Container
+################################################################################
+
+echo -e "${YELLOW}Step 5: Creating kubeconfig for Policy Reporter...${NC}"
+
+# Get CA certificate
+CA_CERT=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+
+cat > "$SCRIPT_DIR/kubeconfig" <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: $CA_CERT
+    server: $KIND_API
+  name: kind
+contexts:
+- context:
+    cluster: kind
+    user: policy-reporter
+    namespace: policy-reporter
+  name: kind-policy-reporter
+current-context: kind-policy-reporter
+users:
+- name: policy-reporter
+  user:
+    token: $TOKEN
+EOF
+
+echo -e "${GREEN}✓ Kubeconfig created${NC}"
+echo ""
+
+################################################################################
+# Start Policy Reporter
+################################################################################
+
+echo -e "${YELLOW}Step 6: Starting Policy Reporter on Docker Desktop...${NC}"
+
+cd "$SCRIPT_DIR"
+
+# Stop existing containers if running
+if docker ps -a | grep -q "policy-reporter"; then
+    echo "Stopping existing Policy Reporter containers..."
+    docker-compose down 2>/dev/null || true
+fi
+
+# Start containers
+if command -v docker-compose &> /dev/null; then
+    docker-compose up -d
+else
+    docker compose up -d
+fi
+
+echo -e "${GREEN}✓ Policy Reporter containers started${NC}"
+echo ""
+
+################################################################################
+# Wait for Services
+################################################################################
+
+echo -e "${YELLOW}Step 7: Waiting for services to be ready...${NC}"
+
+# Wait for policy-reporter
+echo -n "Waiting for Policy Reporter API"
+for i in {1..30}; do
+    if curl -s http://localhost:31001/healthz &> /dev/null; then
+        echo ""
+        echo -e "${GREEN}✓ Policy Reporter API is ready${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
+
+# Wait for policy-reporter-ui
+echo -n "Waiting for Policy Reporter UI"
+for i in {1..30}; do
+    if curl -s http://localhost:31002 &> /dev/null; then
+        echo ""
+        echo -e "${GREEN}✓ Policy Reporter UI is ready${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 2
+done
+
 echo ""
 
 ################################################################################
 # Verify Installation
 ################################################################################
 
-echo -e "${YELLOW}Step 6: Verifying installation...${NC}"
+echo -e "${YELLOW}Step 8: Verifying installation...${NC}"
 
-echo "Policy Reporter pods:"
-kubectl get pods -n policy-reporter
-
-echo ""
-echo "Policy Reporter services:"
-kubectl get svc -n policy-reporter
+echo "Docker containers:"
+docker ps | grep policy-reporter
 
 echo ""
 echo -e "${GREEN}✓ Policy Reporter installation verified${NC}"
@@ -155,38 +326,42 @@ echo -e "${BLUE}═════════════════════�
 echo ""
 
 echo -e "${BLUE}Access Policy Reporter:${NC}"
-echo "  UI (via NodePort):    http://localhost:31001"
-echo "  API:                  http://localhost:31001/api/v1"
-echo "  Metrics:              http://localhost:31001/metrics"
-echo ""
-
-echo -e "${BLUE}Port Forward (alternative):${NC}"
-echo "  kubectl port-forward -n policy-reporter svc/policy-reporter-ui 8080:8080"
-echo "  Then open: http://localhost:8080"
+echo "  UI:       http://localhost:31002"
+echo "  API:      http://localhost:31001/api/v1"
+echo "  Metrics:  http://localhost:31001/metrics"
+echo "  Health:   http://localhost:31001/healthz"
 echo ""
 
 echo -e "${BLUE}Useful Commands:${NC}"
-echo "  # View policy reports"
+echo "  # View policy reports in Kubernetes"
 echo "  kubectl get policyreport -A"
 echo "  kubectl get clusterpolicyreport"
 echo ""
 echo "  # Check Policy Reporter logs"
-echo "  kubectl logs -n policy-reporter -l app.kubernetes.io/name=policy-reporter -f"
+echo "  docker logs policy-reporter -f"
 echo ""
-echo "  # View UI logs"
-echo "  kubectl logs -n policy-reporter -l app.kubernetes.io/name=ui -f"
+echo "  # Check UI logs"
+echo "  docker logs policy-reporter-ui -f"
 echo ""
 echo "  # Test API"
+echo "  curl http://localhost:31001/api/v1/cluster-resources/reports"
 echo "  curl http://localhost:31001/api/v1/namespaced-resources/reports"
+echo ""
+echo "  # Stop Policy Reporter"
+echo "  cd $SCRIPT_DIR && docker-compose down"
+echo ""
+echo "  # Restart Policy Reporter"
+echo "  cd $SCRIPT_DIR && docker-compose restart"
 echo ""
 
 echo -e "${BLUE}Integration Status:${NC}"
-echo "  ✓ Kyverno integration:  Enabled (auto-detected)"
-echo "  ✓ Loki logging:         Enabled (http://loki.logging:3100)"
-echo "  ✓ Prometheus metrics:   Enabled"
-echo "  ✓ Web UI:               Enabled (NodePort 31001)"
+echo "  ✓ Kyverno integration:  Enabled (via Kubernetes API)"
+echo "  ✓ Loki logging:         ${LOKI_URL:+Enabled ($LOKI_URL)}"
+echo "  ${LOKI_URL:+✓}${LOKI_URL:-✗} Prometheus metrics:   Enabled"
+echo "  ✓ Web UI:               Enabled (http://localhost:31002)"
 echo ""
 
 echo -e "${YELLOW}Note: Policy Reporter will automatically collect reports from Kyverno.${NC}"
-echo -e "${YELLOW}Violations are sent to Loki and visible in the UI dashboard.${NC}"
+echo -e "${YELLOW}Access the dashboard to view policy violations and compliance status.${NC}"
 echo ""
+
