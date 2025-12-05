@@ -198,6 +198,7 @@ services:
       - "31002:8080"
     environment:
       - POLICY_REPORTER_URL=http://policy-reporter:8080
+      - POLICY_REPORTER_PROXY=true
       - PORT=8080
     depends_on:
       - policy-reporter
@@ -233,16 +234,19 @@ rest:
 metrics:
   enabled: true
 
+ui:
+  enabled: true
+
 target:
   loki:
     host: ${LOKI_URL}
     path: /loki/api/v1/push
-    minimumPriority: "warning"
-    skipExistingOnStartup: true
+    minimumPriority: ""
+    skipExistingOnStartup: false
 
 database:
   type: sqlite
-  database: /tmp/policy-reporter.db
+  database: /data/policy-reporter.db
 
 reportFilter:
   namespaces:

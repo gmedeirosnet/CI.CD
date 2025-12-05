@@ -9,16 +9,19 @@ rest:
 metrics:
   enabled: true
 
+ui:
+  enabled: true
+
 target:
   loki:
     host: http://host.docker.internal:31000
     path: /loki/api/v1/push
-    minimumPriority: "warning"
-    skipExistingOnStartup: true
+    minimumPriority: ""
+    skipExistingOnStartup: false
 
 database:
   type: sqlite
-  database: /tmp/policy-reporter.db
+  database: /data/policy-reporter.db
 
 reportFilter:
   namespaces:
