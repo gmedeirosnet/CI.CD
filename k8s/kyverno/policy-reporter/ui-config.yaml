@@ -1,0 +1,12 @@
+api:
+  url: http://policy-reporter:8080
+
+clusters:
+  - name: app-demo
+    api: http://policy-reporter:8080
+    skipTLS: false
+
+log:
+  size: 500
+
+port: 8080
