@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  policy-reporter:
+    image: ghcr.io/kyverno/policy-reporter:latest
+    container_name: policy-reporter
+    restart: unless-stopped
+    user: "0:0"
+    command: ["run", "--kubeconfig", "/config/kubeconfig", "--config", "/app/config.yaml", "--dbfile", "/data/policy-reporter.db"]
+    ports:
+      - "31001:8080"
+    environment:
+      - KUBECONFIG=/config/kubeconfig
+    volumes:
+      - ./kubeconfig:/config/kubeconfig:ro
+      - ./policy-reporter-config.yaml:/app/config.yaml:ro
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - policy-reporter
+
+  policy-reporter-ui:
+    image: ghcr.io/kyverno/policy-reporter-ui:latest
+    container_name: policy-reporter-ui
+    restart: unless-stopped
+    ports:
+      - "31002:8080"
+    environment:
+      - POLICY_REPORTER_URL=http://policy-reporter:8080
+      - PORT=8080
+    depends_on:
+      - policy-reporter
+    networks:
+      - policy-reporter
+
+networks:
+  policy-reporter:
+    driver: bridge
+
+volumes:
+  policy-reporter-data:

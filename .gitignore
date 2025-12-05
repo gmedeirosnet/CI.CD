@@ -341,3 +341,4 @@ argocd-secret.yaml
 error.log
 instructions/
 copilot-instructions.md
+.github/

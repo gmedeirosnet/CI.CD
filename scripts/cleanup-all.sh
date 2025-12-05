@@ -51,7 +51,7 @@ print_info() {
 print_header "DevOps CI/CD Lab Cleanup"
 echo ""
 echo "This script will remove:"
-echo "  - All running containers (Jenkins, Harbor, SonarQube, Grafana)"
+echo "  - All running containers (Jenkins, Harbor, SonarQube, Policy Reporter, Grafana)"
 echo "  - Kind Kubernetes cluster"
 echo "  - ArgoCD deployments"
 echo ""
@@ -215,10 +215,55 @@ fi
 echo ""
 
 ################################################################################
-# Step 5: Stop Grafana
+# Step 5: Stop Policy Reporter
 ################################################################################
 
-print_header "Step 5: Stopping Grafana"
+print_header "Step 5: Stopping Policy Reporter"
+
+# Check if Policy Reporter was deployed via docker-compose
+if [ -f "$PROJECT_ROOT/k8s/kyverno/policy-reporter/docker-compose.yml" ]; then
+    if docker ps -a | grep -q "policy-reporter"; then
+        print_info "Stopping Policy Reporter (docker-compose)..."
+        cd "$PROJECT_ROOT/k8s/kyverno/policy-reporter"
+        if [[ $REMOVE_VOLUMES =~ ^[Yy]$ ]]; then
+            docker-compose down -v
+            print_success "Policy Reporter stopped and volumes removed"
+
+            # Remove generated files
+            rm -f kubeconfig policy-reporter-config.yaml 2>/dev/null || true
+            rm -rf data/ 2>/dev/null || true
+            print_success "Policy Reporter configuration files removed"
+        else
+            docker-compose down
+            print_success "Policy Reporter stopped (volumes preserved)"
+        fi
+        cd "$PROJECT_ROOT"
+    else
+        print_info "Policy Reporter not running"
+    fi
+# Fallback to standalone container cleanup
+elif docker ps -a | grep -q "policy-reporter"; then
+    print_info "Stopping Policy Reporter containers..."
+    docker stop policy-reporter policy-reporter-ui 2>/dev/null || true
+    docker rm policy-reporter policy-reporter-ui 2>/dev/null || true
+    print_success "Policy Reporter containers stopped and removed"
+
+    if [[ $REMOVE_VOLUMES =~ ^[Yy]$ ]]; then
+        print_info "Removing Policy Reporter volumes..."
+        docker volume rm policy-reporter-data 2>/dev/null || true
+        print_success "Policy Reporter volumes removed"
+    fi
+else
+    print_info "Policy Reporter not running"
+fi
+
+echo ""
+
+################################################################################
+# Step 6: Stop Grafana
+################################################################################
+
+print_header "Step 6: Stopping Grafana"
 
 # Check if Grafana was deployed via docker-compose
 if [ -f "$PROJECT_ROOT/k8s/grafana/docker-compose.yml" ]; then
@@ -292,10 +337,10 @@ fi
 echo ""
 
 ################################################################################
-# Step 7: Clean Build Artifacts
+# Step 8: Clean Build Artifacts
 ################################################################################
 
-print_header "Step 7: Cleaning Build Artifacts"
+print_header "Step 8: Cleaning Build Artifacts"
 
 cd "$PROJECT_ROOT"
 
@@ -315,10 +360,10 @@ fi
 echo ""
 
 ################################################################################
-# Step 8: Optional - Clean Configuration
+# Step 9: Optional - Clean Configuration
 ################################################################################
 
-print_header "Step 8: Configuration Cleanup"
+print_header "Step 9: Configuration Cleanup"
 
 echo ""
 read -p "Do you want to remove .env file? (y/n) " -n 1 -r
@@ -339,7 +384,7 @@ echo ""
 print_header "Verification"
 
 # Check containers
-RUNNING_CONTAINERS=$(docker ps --format "{{.Names}}" | grep -E "jenkins|harbor|sonarqube|grafana|kind" || true)
+RUNNING_CONTAINERS=$(docker ps --format "{{.Names}}" | grep -E "jenkins|harbor|sonarqube|grafana|policy-reporter|kind" || true)
 if [ -z "$RUNNING_CONTAINERS" ]; then
     print_success "No lab containers running"
 else
@@ -377,6 +422,7 @@ echo "  ✓ Kind Kubernetes cluster"
 echo "  ✓ Jenkins container"
 echo "  ✓ Harbor container"
 echo "  ✓ SonarQube container"
+echo "  ✓ Policy Reporter containers"
 echo "  ✓ Grafana container"
 echo "  ✓ Docker networks"
 
