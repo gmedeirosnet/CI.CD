@@ -68,9 +68,12 @@ echo ""
 echo -e "${YELLOW}Step 2: Configuring Kubernetes API access...${NC}"
 
 # Get Kind API server endpoint
-KIND_API=$(kubectl cluster-info | grep "control plane" | awk '{print $NF}' | tr -d '\033[0m')
+KIND_API_RAW=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.server}')
+# Replace 127.0.0.1 with host.docker.internal for Docker Desktop access
+KIND_API=$(echo "$KIND_API_RAW" | sed 's/127\.0\.0\.1/host.docker.internal/g')
 if [ -z "$KIND_API" ]; then
-    KIND_API="https://127.0.0.1:$(docker port kind-control-plane | grep 6443 | cut -d: -f2)"
+    KIND_PORT=$(docker port kind-control-plane | grep 6443 | cut -d: -f2)
+    KIND_API="https://host.docker.internal:$KIND_PORT"
 fi
 echo "Kind API Server: $KIND_API"
 
@@ -172,21 +175,16 @@ services:
     image: ghcr.io/kyverno/policy-reporter:latest
     container_name: policy-reporter
     restart: unless-stopped
+    user: "0:0"
+    command: ["run", "--kubeconfig", "/config/kubeconfig", "--config", "/app/config.yaml", "--dbfile", "/data/policy-reporter.db"]
     ports:
       - "31001:8080"
     environment:
       - KUBECONFIG=/config/kubeconfig
-      - API_SERVER=$KIND_API
-      - K8S_SERVICE_ACCOUNT_TOKEN=$TOKEN
-      - LOKI_HOST=${LOKI_URL}
-      - LOKI_PATH=/loki/api/v1/push
-      - LOKI_MINIMUM_PRIORITY=warning
-      - LOKI_SKIP_EXISTING=true
-      - REST_ENABLED=true
-      - METRICS_ENABLED=true
-      - PORT=8080
     volumes:
       - ./kubeconfig:/config/kubeconfig:ro
+      - ./policy-reporter-config.yaml:/app/config.yaml:ro
+      - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -209,16 +207,58 @@ services:
 networks:
   policy-reporter:
     driver: bridge
+
+volumes:
+  policy-reporter-data:
 EOF
 
 echo -e "${GREEN}✓ Docker Compose configuration created${NC}"
 echo ""
 
 ################################################################################
+# Create Policy Reporter Configuration
+################################################################################
+
+echo -e "${YELLOW}Step 5: Creating Policy Reporter configuration...${NC}"
+
+cat > "$SCRIPT_DIR/policy-reporter-config.yaml" <<EOF
+kubeconfig: /config/kubeconfig
+
+api:
+  port: 8080
+
+rest:
+  enabled: true
+
+metrics:
+  enabled: true
+
+target:
+  loki:
+    host: ${LOKI_URL}
+    path: /loki/api/v1/push
+    minimumPriority: "warning"
+    skipExistingOnStartup: true
+
+database:
+  type: sqlite
+  database: /tmp/policy-reporter.db
+
+reportFilter:
+  namespaces:
+    include: []
+  clusterReports:
+    disabled: false
+EOF
+
+echo -e "${GREEN}✓ Policy Reporter configuration created${NC}"
+echo ""
+
+################################################################################
 # Create Kubeconfig for Container
 ################################################################################
 
-echo -e "${YELLOW}Step 5: Creating kubeconfig for Policy Reporter...${NC}"
+echo -e "${YELLOW}Step 6: Creating kubeconfig for Policy Reporter...${NC}"
 
 # Get CA certificate
 CA_CERT=$(kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
@@ -228,8 +268,8 @@ apiVersion: v1
 kind: Config
 clusters:
 - cluster:
-    certificate-authority-data: $CA_CERT
     server: $KIND_API
+    insecure-skip-tls-verify: true
   name: kind
 contexts:
 - context:
@@ -251,14 +291,14 @@ echo ""
 # Start Policy Reporter
 ################################################################################
 
-echo -e "${YELLOW}Step 6: Starting Policy Reporter on Docker Desktop...${NC}"
+echo -e "${YELLOW}Step 7: Starting Policy Reporter on Docker Desktop...${NC}"
 
 cd "$SCRIPT_DIR"
 
 # Stop existing containers if running
 if docker ps -a | grep -q "policy-reporter"; then
     echo "Stopping existing Policy Reporter containers..."
-    docker-compose down 2>/dev/null || true
+    docker-compose down 2>/dev/null || docker compose down 2>/dev/null || true
 fi
 
 # Start containers
@@ -275,7 +315,7 @@ echo ""
 # Wait for Services
 ################################################################################
 
-echo -e "${YELLOW}Step 7: Waiting for services to be ready...${NC}"
+echo -e "${YELLOW}Step 8: Waiting for services to be ready...${NC}"
 
 # Wait for policy-reporter
 echo -n "Waiting for Policy Reporter API"
@@ -307,7 +347,7 @@ echo ""
 # Verify Installation
 ################################################################################
 
-echo -e "${YELLOW}Step 8: Verifying installation...${NC}"
+echo -e "${YELLOW}Step 9: Verifying installation...${NC}"
 
 echo "Docker containers:"
 docker ps | grep policy-reporter

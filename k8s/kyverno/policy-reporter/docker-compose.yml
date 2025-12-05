@@ -5,21 +5,16 @@ services:
     image: ghcr.io/kyverno/policy-reporter:latest
     container_name: policy-reporter
     restart: unless-stopped
+    user: "0:0"
+    command: ["run", "--kubeconfig", "/config/kubeconfig", "--config", "/app/config.yaml", "--dbfile", "/data/policy-reporter.db"]
     ports:
       - "31001:8080"
     environment:
       - KUBECONFIG=/config/kubeconfig
-      - API_SERVER=https://127...1:58265
-      - K8S_SERVICE_ACCOUNT_TOKEN=eyJhbGciOiJSUzI1NiIsImtpZCI6IjA3dTMxN1lST3BrMlNjLXBrU0gzU0t5N2gxbU9aa3RHWEREUU91RTZpdE0ifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoyMDgwMjkxNDAwLCJpYXQiOjE3NjQ5MzE0MDAsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwianRpIjoiYmNmY2FjZDEtM2IzNy00ZTQzLTgyOWQtZDcwZjVlMzYyMzJhIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJwb2xpY3ktcmVwb3J0ZXIiLCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoicG9saWN5LXJlcG9ydGVyIiwidWlkIjoiZGQ4NjFjNTItM2FkYi00MGVlLTlhMzQtN2IwZmFiNDc5YWFhIn19LCJuYmYiOjE3NjQ5MzE0MDAsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpwb2xpY3ktcmVwb3J0ZXI6cG9saWN5LXJlcG9ydGVyIn0.OZJ1EnN4w4I5-qaVyBaVb2NRqe2b2JJjBnpKcGN6ohN2RCYeCvgp7NYDlBCCHJUgcaJcoQ0MCVbtCI4MKDKh4QW6arQvjsK73Om5bJ2zrbadTzSTGfjJPz22j9c5BxlUH64GU46AizE7qVbHfLf17kk6M4CQiHLANCk1ylgiyJKsLv6LJEw4P7tUUjW72gFYBND4s6MuupzY7ALx7F3WYktYCVSBvHFIlM-8hcJaX1Hy5XjGYG5Mum-ZYr6y71C0Yhzk6Z7s9CMwhOh9S_-pTVtg0vlpu7l6JnLTECDw0vUrS8QCZse_7nUQW2_WuYkxnZ0HNI3N0TKfDLTcFo7lxw
-      - LOKI_HOST=http://host.docker.internal:31000
-      - LOKI_PATH=/loki/api/v1/push
-      - LOKI_MINIMUM_PRIORITY=warning
-      - LOKI_SKIP_EXISTING=true
-      - REST_ENABLED=true
-      - METRICS_ENABLED=true
-      - PORT=8080
     volumes:
       - ./kubeconfig:/config/kubeconfig:ro
+      - ./policy-reporter-config.yaml:/app/config.yaml:ro
+      - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -42,3 +37,6 @@ services:
 networks:
   policy-reporter:
     driver: bridge
+
+volumes:
+  policy-reporter-data:
