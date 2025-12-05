@@ -1,0 +1,27 @@
+kubeconfig: /config/kubeconfig
+
+api:
+  port: 8080
+
+rest:
+  enabled: true
+
+metrics:
+  enabled: true
+
+target:
+  loki:
+    host: http://host.docker.internal:31000
+    path: /loki/api/v1/push
+    minimumPriority: "warning"
+    skipExistingOnStartup: true
+
+database:
+  type: sqlite
+  database: /tmp/policy-reporter.db
+
+reportFilter:
+  namespaces:
+    include: []
+  clusterReports:
+    disabled: false
