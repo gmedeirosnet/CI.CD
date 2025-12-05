@@ -121,7 +121,7 @@ echo "- ArgoCD GitOps deployment"
 echo "- Grafana visualization platform"
 echo "- Loki log aggregation system"
 echo "- Prometheus metrics collection"
-echo "- Kyverno policy engine"
+echo "- Kyverno policy engine (installed last)"
 echo ""
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo ""
@@ -629,10 +629,33 @@ fi
 echo ""
 
 ################################################################################
-# Step 7.7: Setup Kyverno Policy Engine
+# Step 8: Build Demo Application
 ################################################################################
 
-print_header "Step 7.7: Setting up Kyverno Policy Engine"
+print_header "Step 8: Building Demo Application"
+
+cd "$PROJECT_ROOT"
+
+if [ -f "pom.xml" ]; then
+    print_info "Building Maven project..."
+    if command -v mvn &> /dev/null; then
+        mvn clean package -DskipTests
+        print_success "Maven build completed"
+    elif [ -f "mvnw" ]; then
+        ./mvnw clean package -DskipTests
+        print_success "Maven build completed"
+    else
+        print_warning "Maven not found. Skipping build"
+    fi
+fi
+
+echo ""
+
+################################################################################
+# Step 9: Setup Kyverno Policy Engine
+################################################################################
+
+print_header "Step 9: Setting up Kyverno Policy Engine"
 
 # Check if Kyverno is already installed
 if kubectl get namespace kyverno &> /dev/null && helm list -n kyverno 2>/dev/null | grep -q "^kyverno"; then
@@ -740,10 +763,10 @@ fi
 echo ""
 
 ################################################################################
-# Step 7.8: Setup Policy Reporter (Kyverno Observability)
+# Step 10: Setup Policy Reporter (Kyverno Observability)
 ################################################################################
 
-print_header "Step 7.8: Setting up Policy Reporter"
+print_header "Step 10: Setting up Policy Reporter"
 
 # Check if Kyverno is installed before installing Policy Reporter
 if [ "$KYVERNO_INSTALLED" = true ]; then
@@ -797,35 +820,9 @@ if [ "$KYVERNO_INSTALLED" = true ]; then
         print_info "To install manually:"
         print_info "  cd k8s/kyverno/policy-reporter && ./install-policy-reporter.sh"
     fi
-        print_info "To install manually:"
-        print_info "  cd k8s/kyverno/policy-reporter && ./install-policy-reporter.sh"
-    fi
 else
     print_warning "Kyverno is not installed - skipping Policy Reporter"
     print_info "Policy Reporter requires Kyverno to be installed first"
-fi
-
-echo ""
-
-################################################################################
-# Step 8: Build Demo Application
-################################################################################
-
-print_header "Step 8: Building Demo Application"
-
-cd "$PROJECT_ROOT"
-
-if [ -f "pom.xml" ]; then
-    print_info "Building Maven project..."
-    if command -v mvn &> /dev/null; then
-        mvn clean package -DskipTests
-        print_success "Maven build completed"
-    elif [ -f "mvnw" ]; then
-        ./mvnw clean package -DskipTests
-        print_success "Maven build completed"
-    else
-        print_warning "Maven not found. Skipping build"
-    fi
 fi
 
 echo ""
@@ -892,6 +889,7 @@ echo "  - Harbor:    admin / Harbor12345"
 echo "  - SonarQube: admin / admin (change on first login)"
 echo "  - Grafana:   admin / admin (change on first login)"
 echo "  - ArgoCD:    admin / $ARGOCD_PASSWORD"
+echo ""
 echo "Kubernetes Components:"
 echo "  - Kind cluster running (kubectl context: kind-kind)"
 echo "  - Kyverno policy engine (namespace: kyverno)"
@@ -901,8 +899,7 @@ echo "  - ArgoCD GitOps (namespace: argocd)"
 echo ""
 echo "Docker Desktop Services:"
 echo "  - Grafana visualization platform"
-echo "  - Policy Reporter UI for Kyverno"itoring)"
-echo "  - ArgoCD GitOps (namespace: argocd)"
+echo "  - Policy Reporter UI for Kyverno"
 echo ""
 echo "Next steps:"
 echo "  1. Configure Jenkins pipelines"
