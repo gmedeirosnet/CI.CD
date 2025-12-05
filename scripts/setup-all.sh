@@ -740,6 +740,71 @@ fi
 echo ""
 
 ################################################################################
+# Step 7.8: Setup Policy Reporter (Kyverno Observability)
+################################################################################
+
+print_header "Step 7.8: Setting up Policy Reporter"
+
+# Check if Kyverno is installed before installing Policy Reporter
+if [ "$KYVERNO_INSTALLED" = true ]; then
+    # Check if Policy Reporter is already installed
+    if helm list -n policy-reporter 2>/dev/null | grep -q "^policy-reporter"; then
+        print_info "Policy Reporter is already installed"
+
+        # Verify it's running
+        REPORTER_PODS=$(kubectl get pods -n policy-reporter --no-headers 2>/dev/null | grep Running | wc -l | tr -d ' ')
+        if [ "$REPORTER_PODS" -gt 0 ]; then
+            print_success "Policy Reporter has $REPORTER_PODS pod(s) running"
+        else
+            print_warning "Policy Reporter pods are not running"
+            kubectl get pods -n policy-reporter
+        fi
+    elif [ -f "$PROJECT_ROOT/k8s/kyverno/policy-reporter/install-policy-reporter.sh" ]; then
+        print_info "Installing Policy Reporter for Kyverno observability..."
+        cd "$PROJECT_ROOT/k8s/kyverno/policy-reporter"
+        chmod +x install-policy-reporter.sh
+
+        # Run installation script non-interactively
+        if ! echo "n" | ./install-policy-reporter.sh; then
+            print_error "Failed to install Policy Reporter"
+            cd "$PROJECT_ROOT"
+            exit 1
+        fi
+
+        cd "$PROJECT_ROOT"
+        print_success "Policy Reporter installed in policy-reporter namespace"
+
+        # Verify installation
+        print_info "Verifying Policy Reporter installation..."
+        sleep 3
+        REPORTER_PODS=$(kubectl get pods -n policy-reporter --no-headers 2>/dev/null | grep Running | wc -l | tr -d ' ')
+        if [ "$REPORTER_PODS" -eq 0 ]; then
+            print_warning "Policy Reporter pods may still be starting"
+# Check Kubernetes namespaces
+K8S_NAMESPACES=0
+for ns in argocd kyverno logging monitoring policy-reporter; do
+    if kubectl get namespace "$ns" &> /dev/null; then
+        ((K8S_NAMESPACES++))
+    fi
+done    print_info "Features enabled:"
+        print_info "  - Web UI Dashboard (NodePort 31001)"
+        print_info "  - Loki integration (violations logged)"
+        print_info "  - Prometheus metrics (/metrics endpoint)"
+        print_info "  - REST API (/api/v1/reports)"
+    else
+        print_warning "Policy Reporter installation script not found"
+        print_info "To install manually:"
+        print_info "  helm repo add policy-reporter https://kyverno.github.io/policy-reporter"
+        print_info "  helm install policy-reporter policy-reporter/policy-reporter -n policy-reporter --create-namespace"
+    fi
+else
+    print_warning "Kyverno is not installed - skipping Policy Reporter"
+    print_info "Policy Reporter requires Kyverno to be installed first"
+fi
+
+echo ""
+
+################################################################################
 # Step 8: Build Demo Application
 ################################################################################
 
@@ -797,7 +862,7 @@ fi
 
 echo "Validation Results:"
 echo "  - Docker Services:    $DOCKER_SERVICES/3 running"
-echo "  - K8s Namespaces:     $K8S_NAMESPACES/4 created"
+echo "  - K8s Namespaces:     $K8S_NAMESPACES/5 created"
 echo "  - Kind Cluster:       $CLUSTER_STATUS"
 echo ""
 
@@ -809,13 +874,14 @@ else
 fi
 echo ""
 echo "Service URLs:"
-echo "  - Jenkins:    http://localhost:8080"
-echo "  - Harbor:     http://localhost:8082"
-echo "  - SonarQube:  http://localhost:9000"
-echo "  - Grafana:    http://localhost:3000"
-echo "  - Loki:       http://localhost:31000"
-echo "  - Prometheus: http://localhost:30090"
-echo "  - ArgoCD:     https://localhost:8090"
+echo "  - Jenkins:        http://localhost:8080"
+echo "  - Harbor:         http://localhost:8082"
+echo "  - SonarQube:      http://localhost:9000"
+echo "  - Grafana:        http://localhost:3000"
+echo "  - Loki:           http://localhost:31000"
+echo "  - Prometheus:     http://localhost:30090"
+echo "  - ArgoCD:         https://localhost:8090"
+echo "  - Policy Reporter: http://localhost:31001"
 echo ""
 echo "Credentials:"
 echo "  - Jenkins:   admin / $JENKINS_PASSWORD"
@@ -823,12 +889,13 @@ echo "  - Harbor:    admin / Harbor12345"
 echo "  - SonarQube: admin / admin (change on first login)"
 echo "  - Grafana:   admin / admin (change on first login)"
 echo "  - ArgoCD:    admin / $ARGOCD_PASSWORD"
-echo ""
 echo "Kubernetes Components:"
 echo "  - Kind cluster running (kubectl context: kind-kind)"
 echo "  - Kyverno policy engine (namespace: kyverno)"
+echo "  - Policy Reporter UI (namespace: policy-reporter)"
 echo "  - Loki log aggregation (namespace: logging)"
 echo "  - Prometheus metrics (namespace: monitoring)"
+echo "  - ArgoCD GitOps (namespace: argocd)"itoring)"
 echo "  - ArgoCD GitOps (namespace: argocd)"
 echo ""
 echo "Next steps:"

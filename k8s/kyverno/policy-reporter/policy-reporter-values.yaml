@@ -1,0 +1,197 @@
+# Policy Reporter Helm Values
+# Integrates with Kyverno to provide UI, notifications, and metrics
+
+# ============================================
+# UI Configuration
+# ============================================
+ui:
+  enabled: true
+
+  # UI Service Configuration
+  service:
+    type: NodePort
+    port: 8080
+    nodePort: 31001
+
+  # UI Resources
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 200m
+    requests:
+      memory: 128Mi
+      cpu: 100m
+
+  # Log level
+  log:
+    level: info
+
+# ============================================
+# Policy Reporter Core Configuration
+# ============================================
+# API and aggregation engine
+rest:
+  enabled: true
+
+# ============================================
+# Metrics Configuration
+# ============================================
+metrics:
+  enabled: true
+
+  # ServiceMonitor for Prometheus Operator (disabled - we use standalone Prometheus)
+  serviceMonitor:
+    enabled: false
+
+  # Expose metrics endpoint
+  service:
+    type: ClusterIP
+    port: 8080
+
+# ============================================
+# Monitoring Mode
+# ============================================
+monitoring:
+  enabled: true
+
+# ============================================
+# Policy Report Watcher
+# ============================================
+# Watches PolicyReport and ClusterPolicyReport resources
+policyReportFilter:
+  # Don't filter by namespace - watch all
+  namespaces:
+    include: []
+    exclude: []
+
+# ============================================
+# Notification Targets
+# ============================================
+target:
+  # Loki Integration - Send policy violations to Loki
+  loki:
+    host: "http://loki.logging:3100"
+    path: "/loki/api/v1/push"
+    minimumPriority: "warning"
+    skipExistingOnStartup: true
+    customLabels:
+      cluster: "kind-app-demo"
+      source: "kyverno"
+    sources:
+      - kyverno
+
+  # Slack notifications (optional - uncomment and configure)
+  # slack:
+  #   webhook: ""
+  #   channel: "#kyverno-alerts"
+  #   minimumPriority: "warning"
+  #   skipExistingOnStartup: true
+  #   sources:
+  #     - kyverno
+
+  # Webhook notifications (optional - uncomment and configure)
+  # webhook:
+  #   host: ""
+  #   headers: {}
+  #   minimumPriority: "warning"
+  #   skipExistingOnStartup: true
+
+# ============================================
+# Database (optional - for historical data)
+# ============================================
+# SQLite for simple persistence
+database:
+  type: "sqlite"
+  database: "/tmp/policy-reporter.db"
+
+# ============================================
+# Redis (optional - for caching)
+# ============================================
+redis:
+  enabled: false
+
+# ============================================
+# Resources
+# ============================================
+resources:
+  limits:
+    memory: 512Mi
+    cpu: 500m
+  requests:
+    memory: 256Mi
+    cpu: 200m
+
+# ============================================
+# Cleanup
+# ============================================
+# Clean up old reports
+reportFilter:
+  clusterReports:
+    disabled: false
+  namespaceReports:
+    disabled: false
+
+# ============================================
+# Email Reports (optional)
+# ============================================
+emailReports:
+  enabled: false
+  # smtp:
+  #   host: "smtp.gmail.com"
+  #   port: 587
+  #   username: ""
+  #   password: ""
+  #   from: "kyverno@company.com"
+  # to: "team@company.com"
+  # minimumPriority: "critical"
+
+# ============================================
+# Logging
+# ============================================
+logging:
+  encoding: console
+  logLevel: 0  # 0=info, 1=debug
+
+# ============================================
+# API Configuration
+# ============================================
+api:
+  logging: false
+
+# ============================================
+# Port Configuration
+# ============================================
+port:
+  rest: 8080
+  metrics: 8081
+
+# ============================================
+# Kyverno Plugin Configuration
+# ============================================
+# Automatically enabled - Policy Reporter detects Kyverno CRDs
+kyvernoPlugin:
+  enabled: true
+
+# ============================================
+# Profile Mode
+# ============================================
+# Use "default" profile for standard deployment
+profile: default
+
+# ============================================
+# Security Context
+# ============================================
+securityContext:
+  runAsUser: 1234
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  runAsUser: 1234
+  runAsNonRoot: true
+  fsGroup: 1234
