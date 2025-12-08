@@ -339,6 +339,6 @@ argocd-secret.yaml
 # Custom - Add your specific ignores below
 # ==========================================
 error.log
-instructions/+
+instructions/*
 copilot-instructions.md
-.github/+
+.github/*
