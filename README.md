@@ -23,6 +23,7 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
 - **Kyverno** - Kubernetes-native policy engine for security and compliance
+- **Policy Reporter** - Kyverno policy violation monitoring and reporting
 
 ### Code Quality & Observability
 - **SonarQube** - Code quality and security analysis
@@ -68,7 +69,12 @@ CI.CD/
 │   │   ├── install/            # Installation scripts and Helm values
 │   │   ├── policies/           # Policy definitions (Audit mode)
 │   │   ├── tests/              # Policy testing suite
-│   │   └── monitoring/         # Violation reports and metrics
+│   │   ├── monitoring/         # Violation reports and metrics
+│   │   └── policy-reporter/    # Policy Reporter (violation dashboard)
+│   │       ├── docker-compose.yml        # Policy Reporter services
+│   │       ├── policy-reporter-config.yaml  # Backend configuration
+│   │       ├── ui-config.yaml           # UI configuration
+│   │       └── install-policy-reporter.sh   # Installation script
 │   ├── grafana/                # Monitoring stack
 │   ├── prometheus/             # Metrics collection
 │   └── sample-app/             # Sample deployments
@@ -101,18 +107,23 @@ The fastest way to get started:
 ./k8s/k8s-permissions_port-forward.sh start
 
 # 4. Access the services:
-# - Jenkins:    http://localhost:8080
-# - Harbor:     http://localhost:8082
-# - SonarQube:  http://localhost:8090
-# - Grafana:    http://localhost:3000
-# - Prometheus: http://localhost:30090
-# - Loki:       http://localhost:31000
-# - ArgoCD:     https://localhost:8090
+# - Jenkins:          http://localhost:8080
+# - Harbor:           http://localhost:8082
+# - SonarQube:        http://localhost:8090
+# - Grafana:          http://localhost:3000
+# - Prometheus:       http://localhost:30090
+# - Loki:             http://localhost:31000
+# - ArgoCD:           https://localhost:8090
+# - Policy Reporter:  http://localhost:31002 (UI)
+# - Policy Reporter:  http://localhost:31001 (API)
 
-# 5. (Optional) Install Kyverno policy engine:
+# 5. (Optional) Install Kyverno policy engine with Policy Reporter:
 cd k8s/kyverno
 ./install/setup-kyverno.sh
 kubectl apply -f policies/ -R
+# Install Policy Reporter for violation monitoring:
+cd policy-reporter
+./install-policy-reporter.sh
 ```
 
 **Port Forwarding Management:**
@@ -222,7 +233,13 @@ If you prefer step-by-step setup:
    - Verify datasources: Loki and Prometheus should be pre-configured
    - Import dashboards or create custom queries
 
-6. **Run your first pipeline**
+6. **Access Policy Reporter** at http://localhost:31002 (optional)
+   - View Kyverno policy violations in real-time
+   - Monitor cluster compliance status
+   - Filter violations by namespace, policy, and severity
+   - API available at http://localhost:31001
+
+7. **Run your first pipeline**
    - Create Jenkins pipeline from Jenkinsfile
    - Trigger build
    - Watch it build → test → push to Harbor → deploy to Kind
@@ -284,20 +301,21 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                                 Application             Kyverno Policies
                                     ↓                   (validation/mutation)
                                     ↓                        ↓
-                                Monitoring              Compliance Reports
-                            ┌────────┴────────┐
-                            ↓                 ↓
-                      Logs (Loki)      Metrics (Prometheus)
-                            └────────┬────────┘
-                                     ↓
-                                 Grafana
-                            (on Docker Desktop)
+                                Monitoring          ┌─ Policy Reports ─┐
+                            ┌────────┴────────┐    ↓                   ↓
+                            ↓                 ↓    Policy Reporter  Metrics
+                      Logs (Loki)      Metrics (Prometheus) ↓    (Prometheus)
+                            └────────┬────────┘    ↓
+                                     ↓              ↓
+                                 Grafana    Policy Reporter UI
+                            (on Docker Desktop)  (localhost:31002)
 ```
 
-## Key Features## Key Features
+## Key Features
 
 - **Complete CI/CD Pipeline** - From code commit to Kubernetes deployment
 - **Observability Stack** - Integrated logging (Loki) and metrics (Prometheus) with Grafana visualization
+- **Policy Enforcement** - Kyverno policy engine with Policy Reporter dashboard for compliance monitoring
 - **Hands-on Labs** - Practical exercises for each tool
 - **Real-world Application** - Spring Boot demo application
 - **GitOps Workflow** - ArgoCD-based deployment automation
@@ -380,7 +398,7 @@ CI.CD/
 │   └── cicd-demo/
 │
 ├── k8s/                  # Kubernetes configurations
-│   ├── kyverno/         # Kyverno policy engine (NEW)
+│   ├── kyverno/         # Kyverno policy engine
 │   │   ├── README.md   # Complete setup and usage guide
 │   │   ├── install/
 │   │   │   ├── kyverno-values.yaml
@@ -395,9 +413,14 @@ CI.CD/
 │   │   │   ├── valid/
 │   │   │   ├── invalid/
 │   │   │   └── run-tests.sh
-│   │   └── monitoring/
-│   │       ├── view-violations.sh
-│   │       └── prometheus-servicemonitor.yaml
+│   │   ├── monitoring/
+│   │   │   ├── view-violations.sh
+│   │   │   └── prometheus-servicemonitor.yaml
+│   │   └── policy-reporter/   # Policy violation dashboard
+│   │       ├── docker-compose.yml
+│   │       ├── policy-reporter-config.yaml
+│   │       ├── ui-config.yaml
+│   │       └── install-policy-reporter.sh
 │   ├── grafana/         # Grafana, Loki & Promtail setup
 │   │   ├── docker-compose.yml
 │   │   ├── setup-grafana-docker.sh
@@ -461,6 +484,7 @@ After completing this lab, you will be able to:
 - Visualize data with Grafana dashboards
 - Use Helm for Kubernetes package management
 - Implement policy-as-code with Kyverno
+- Monitor policy violations with Policy Reporter
 - Enforce security and compliance policies
 - Manage infrastructure as code
 - Troubleshoot containerized applications
