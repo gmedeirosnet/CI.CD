@@ -472,6 +472,154 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy Kyverno Policies') {
+            steps {
+                script {
+                    sh """
+                        echo "========================================="
+                        echo "=== Kyverno Policy Deployment Stage ==="
+                        echo "========================================="
+                        echo ""
+
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+                        ARGOCD_APP_NAME="kyverno-policies"
+                        POLICIES_PATH="k8s/kyverno/policies"
+
+                        # Check if Kind cluster exists
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping Kyverno policy deployment."
+                            exit 0
+                        fi
+
+                        echo "✓ Kind cluster found: \${KIND_CLUSTER}"
+                        echo ""
+
+                        # Check if Kyverno is installed
+                        if ! docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace kyverno &>/dev/null; then
+                            echo "WARNING: Kyverno not installed. Skipping policy deployment."
+                            echo "To install: cd k8s/kyverno && ./install/setup-kyverno.sh"
+                            exit 0
+                        fi
+
+                        echo "✓ Kyverno is installed"
+                        echo ""
+
+                        # Validate policy files
+                        echo "=== Validating Kyverno Policy Files ==="
+                        if [ ! -d "\${POLICIES_PATH}" ]; then
+                            echo "ERROR: Policies directory not found: \${POLICIES_PATH}"
+                            exit 1
+                        fi
+
+                        POLICY_COUNT=\$(find \${POLICIES_PATH} -name "*.yaml" -o -name "*.yml" | wc -l | tr -d ' ')
+                        echo "Found \${POLICY_COUNT} policy files"
+                        echo ""
+
+                        # Validate YAML syntax
+                        echo "Validating YAML syntax..."
+                        for file in \$(find \${POLICIES_PATH} -name "*.yaml" -o -name "*.yml"); do
+                            echo "  Checking: \$file"
+                            kubectl apply --dry-run=client -f \$file || exit 1
+                        done
+                        echo "✓ All policy files are valid"
+                        echo ""
+
+                        # Check/Create ArgoCD Application for policies
+                        echo "=== ArgoCD Application Management ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd &>/dev/null; then
+                            echo "✓ ArgoCD Application '\${ARGOCD_APP_NAME}' exists"
+
+                            SYNC_STATUS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd -o jsonpath='{.status.sync.status}')
+                            echo "  Current Sync Status: \${SYNC_STATUS}"
+                        else
+                            echo "Creating ArgoCD Application for Kyverno policies..."
+
+                            if [ -f "argocd-apps/kyverno-policies.yaml" ]; then
+                                docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f - < argocd-apps/kyverno-policies.yaml
+                                echo "✓ ArgoCD Application created"
+                            else
+                                echo "WARNING: ArgoCD Application manifest not found"
+                                echo "Applying policies directly..."
+                                docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f - < <(find \${POLICIES_PATH} -name "*.yaml" -exec cat {} \\;)
+                                exit 0
+                            fi
+                        fi
+                        echo ""
+
+                        # Trigger ArgoCD sync
+                        echo "=== Syncing Policies via ArgoCD ==="
+                        echo "Triggering ArgoCD hard refresh..."
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl patch application \${ARGOCD_APP_NAME} -n argocd \
+                            --type merge \
+                            -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+
+                        echo "Waiting for sync to complete..."
+                        sleep 10
+
+                        SYNC_STATUS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+                        HEALTH_STATUS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+
+                        echo "  Sync Status: \${SYNC_STATUS}"
+                        echo "  Health Status: \${HEALTH_STATUS}"
+                        echo ""
+
+                        # Verify deployment
+                        echo "=== Verifying Policy Deployment ==="
+                        echo "Current ClusterPolicies in cluster:"
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get clusterpolicies -o custom-columns=NAME:.metadata.name,BACKGROUND:.spec.background,ACTION:.spec.validationFailureAction,READY:.status.ready
+                        echo ""
+
+                        DEPLOYED_POLICY_COUNT=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get clusterpolicies --no-headers 2>/dev/null | wc -l | tr -d ' ')
+                        echo "Total Policies Deployed: \${DEPLOYED_POLICY_COUNT}"
+                        echo ""
+
+                        # Show policy reports summary
+                        echo "=== Policy Reports Summary ==="
+                        NAMESPACE_REPORTS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get policyreport -A --no-headers 2>/dev/null | wc -l | tr -d ' ')
+                        CLUSTER_REPORTS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get clusterpolicyreport --no-headers 2>/dev/null | wc -l | tr -d ' ')
+
+                        echo "Namespace Policy Reports: \${NAMESPACE_REPORTS}"
+                        echo "Cluster Policy Reports: \${CLUSTER_REPORTS}"
+                        echo "Total Reports: \$((NAMESPACE_REPORTS + CLUSTER_REPORTS))"
+                        echo ""
+
+                        # Check Policy Reporter status
+                        echo "=== Policy Reporter Status ==="
+                        if docker ps 2>/dev/null | grep -q policy-reporter; then
+                            echo "✓ Policy Reporter containers are running"
+
+                            if curl -sf http://localhost:31001/healthz > /dev/null 2>&1; then
+                                echo "✓ Policy Reporter API accessible at http://localhost:31001"
+                                echo "✓ Policy Reporter UI accessible at http://localhost:31002"
+                            else
+                                echo "⚠ Policy Reporter API not responding"
+                            fi
+                        else
+                            echo "ℹ Policy Reporter not running (optional)"
+                        fi
+                        echo ""
+
+                        echo "========================================="
+                        echo "✅ Kyverno Policy Deployment Complete"
+                        echo "========================================="
+                        echo ""
+                        echo "Summary:"
+                        echo "  - Validated: \${POLICY_COUNT} policy files"
+                        echo "  - Deployed: \${DEPLOYED_POLICY_COUNT} ClusterPolicies"
+                        echo "  - Reports Generated: \$((NAMESPACE_REPORTS + CLUSTER_REPORTS))"
+                        echo "  - ArgoCD Sync: \${SYNC_STATUS}"
+                        echo ""
+                        echo "Access Points:"
+                        echo "  - ArgoCD: https://localhost:8090/applications/kyverno-policies"
+                        echo "  - Policy Reporter: http://localhost:31002"
+                        echo "  - Metrics: http://localhost:30090"
+                        echo ""
+                    """
+                }
+            }
+        }
     }
 
     post {
