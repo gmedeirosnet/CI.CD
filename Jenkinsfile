@@ -427,7 +427,9 @@ pipeline {
                         echo ""
 
                         POLICY_COUNT=\$(find \${POLICIES_PATH} -type f \\( -name "*.yaml" -o -name "*.yml" \\) | wc -l | tr -d ' ')
-                        echo "Total policy files found: \${POLICY_COUNT}"                        if [ "\${POLICY_COUNT}" -eq 0 ]; then
+                        echo "Total policy files found: \${POLICY_COUNT}"
+                        
+                        if [ "\${POLICY_COUNT}" -eq 0 ]; then
                             echo "❌ ERROR: No policy files found in \${POLICIES_PATH}"
                             exit 1
                         fi
