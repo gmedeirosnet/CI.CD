@@ -363,12 +363,13 @@ pipeline {
 
                         # Check if Kyverno namespace is installed
                         echo "=== Checking Kyverno Installation ==="
-                        if ! docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace kyverno &>/dev/null; then
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace kyverno >/dev/null 2>&1; then
+                            echo "✓ Kyverno namespace exists"
+                        else
                             echo "❌ ERROR: Kyverno namespace not found!"
                             echo "To install: cd k8s/kyverno && ./install/setup-kyverno.sh"
                             exit 1
                         fi
-                        echo "✓ Kyverno namespace exists"
 
                         # Check if Kyverno pods are running
                         echo ""
@@ -400,11 +401,12 @@ pipeline {
 
                         # Verify Kyverno webhook services
                         echo "Checking Kyverno services..."
-                        if ! docker exec \${KIND_CLUSTER}-control-plane kubectl get svc kyverno-svc -n kyverno &>/dev/null; then
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get svc kyverno-svc -n kyverno >/dev/null 2>&1; then
+                            echo "✓ Kyverno webhook service is running"
+                        else
                             echo "❌ ERROR: Kyverno webhook service not found!"
                             exit 1
                         fi
-                        echo "✓ Kyverno webhook service is running"
                         echo ""
 
                         # Rescan policy directory from repository
@@ -445,7 +447,7 @@ pipeline {
 
                         # Check/Create ArgoCD Application for policies
                         echo "=== ArgoCD Application Management ==="
-                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd &>/dev/null; then
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd >/dev/null 2>&1; then
                             echo "✓ ArgoCD Application '\${ARGOCD_APP_NAME}' exists"
 
                             SYNC_STATUS=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get application \${ARGOCD_APP_NAME} -n argocd -o jsonpath='{.status.sync.status}')
