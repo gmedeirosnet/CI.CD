@@ -336,7 +336,14 @@ if [ -d "$PROJECT_ROOT/harbor" ]; then
     else
         print_info "Starting Harbor..."
         if [ -f "docker-compose.yml" ]; then
-            if ! docker-compose up -d; then
+            # Use docker-compose if available, otherwise use docker compose plugin
+            if command -v docker-compose &> /dev/null; then
+                DOCKER_COMPOSE_CMD="docker-compose"
+            else
+                DOCKER_COMPOSE_CMD="docker compose"
+            fi
+
+            if ! $DOCKER_COMPOSE_CMD up -d; then
                 print_error "Failed to start Harbor"
                 cd "$PROJECT_ROOT"
                 exit 1
