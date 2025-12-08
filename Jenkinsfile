@@ -258,6 +258,86 @@ pipeline {
             }
         }
 
+        stage('Prepare Namespace') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Ensuring namespace ${NAMESPACE} exists ==="
+
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        # Check if Kind cluster exists by checking for control-plane container
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping namespace preparation."
+                            exit 0
+                        fi
+
+                        # Create namespace if it doesn't exist (using docker exec to run kubectl in Kind control plane)
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} 2>/dev/null || \
+                            echo "Namespace ${NAMESPACE} already exists or created"
+
+                        # Create Harbor registry secret in the namespace
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl create secret docker-registry harbor-cred \
+                            --docker-server=host.docker.internal:8082 \
+                            --docker-username=admin \
+                            --docker-password=Harbor12345 \
+                            --namespace=${NAMESPACE} \
+                            2>/dev/null || echo "Secret harbor-cred already exists or created"
+
+                        echo "✅ Namespace ${NAMESPACE} is ready"
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy with ArgoCD') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
+                                                     usernameVariable: 'ARGOCD_USER',
+                                                     passwordVariable: 'ARGOCD_PASS')]) {
+                        sh """
+                            # Set ArgoCD server - use host.docker.internal to reach host from container
+                            export ARGOCD_SERVER='host.docker.internal:8090'
+
+                            # Login to ArgoCD
+                            argocd login \${ARGOCD_SERVER} \
+                                --username \${ARGOCD_USER} \
+                                --password \${ARGOCD_PASS} \
+                                --grpc-web \
+                                --insecure
+
+                            # Create ArgoCD application if it doesn't exist
+                            argocd app create cicd-demo \
+                                --repo https://github.com/gmedeirosnet/CI.CD.git \
+                                --path helm-charts/cicd-demo \
+                                --dest-server https://kubernetes.default.svc \
+                                --dest-namespace ${NAMESPACE} \
+                                --sync-policy automated \
+                                --auto-prune \
+                                --self-heal \
+                                --grpc-web \
+                                --insecure \
+                                2>/dev/null || echo "ArgoCD app already exists"
+
+                            # Sync and wait for deployment
+                            argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
+
+                            # Wait for deployment only (skip service health check for Kind LoadBalancer)
+                            # In Kind, LoadBalancer services never get external IP, causing timeout
+                            argocd app wait cicd-demo --timeout 120 --health=false --grpc-web --insecure || \
+                                echo "Note: ArgoCD wait timed out, but this is expected for LoadBalancer in Kind"
+
+                            # Show application status
+                            argocd app get cicd-demo --grpc-web --insecure
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Validate Kyverno Policies') {
             steps {
                 script {
@@ -367,107 +447,6 @@ pipeline {
                         echo "================================"
                         echo ""
                         echo "All policies satisfied. Proceeding with deployment..."
-                    """
-                }
-            }
-        }
-
-        stage('Prepare Namespace') {
-            steps {
-                script {
-                    sh """
-                        echo "=== Ensuring namespace ${NAMESPACE} exists ==="
-
-                        # Kind cluster name
-                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
-
-                        # Check if Kind cluster exists by checking for control-plane container
-                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
-                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping namespace preparation."
-                            exit 0
-                        fi
-
-                        # Create namespace if it doesn't exist (using docker exec to run kubectl in Kind control plane)
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} 2>/dev/null || \
-                            echo "Namespace ${NAMESPACE} already exists or created"
-
-                        # Create Harbor registry secret in the namespace
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl create secret docker-registry harbor-cred \
-                            --docker-server=host.docker.internal:8082 \
-                            --docker-username=admin \
-                            --docker-password=Harbor12345 \
-                            --namespace=${NAMESPACE} \
-                            2>/dev/null || echo "Secret harbor-cred already exists or created"
-
-                        echo "✅ Namespace ${NAMESPACE} is ready"
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE}
-                    """
-                }
-            }
-        }
-
-        stage('Deploy with ArgoCD') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'argocd-credentials',
-                                                     usernameVariable: 'ARGOCD_USER',
-                                                     passwordVariable: 'ARGOCD_PASS')]) {
-                        sh """
-                            # Set ArgoCD server - use host.docker.internal to reach host from container
-                            export ARGOCD_SERVER='host.docker.internal:8090'
-
-                            # Login to ArgoCD
-                            argocd login \${ARGOCD_SERVER} \
-                                --username \${ARGOCD_USER} \
-                                --password \${ARGOCD_PASS} \
-                                --grpc-web \
-                                --insecure
-
-                            # Create ArgoCD application if it doesn't exist
-                            argocd app create cicd-demo \
-                                --repo https://github.com/gmedeirosnet/CI.CD.git \
-                                --path helm-charts/cicd-demo \
-                                --dest-server https://kubernetes.default.svc \
-                                --dest-namespace ${NAMESPACE} \
-                                --sync-policy automated \
-                                --auto-prune \
-                                --self-heal \
-                                --grpc-web \
-                                --insecure \
-                                2>/dev/null || echo "ArgoCD app already exists"
-
-                            # Sync and wait for deployment
-                            argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
-
-                            # Wait for deployment only (skip service health check for Kind LoadBalancer)
-                            # In Kind, LoadBalancer services never get external IP, causing timeout
-                            argocd app wait cicd-demo --timeout 120 --health=false --grpc-web --insecure || \
-                                echo "Note: ArgoCD wait timed out, but this is expected for LoadBalancer in Kind"
-
-                            # Show application status
-                            argocd app get cicd-demo --grpc-web --insecure
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    sh """
-                        # Kind cluster name
-                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
-
-                        # Check if Kind cluster exists
-                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
-                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping verification."
-                            exit 0
-                        fi
-
-                        echo "=== Verifying deployment in namespace ${NAMESPACE} ==="
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl get pods -n ${NAMESPACE}
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl get svc -n ${NAMESPACE}
                     """
                 }
             }
@@ -620,6 +599,28 @@ pipeline {
                 }
             }
         }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    sh """
+                        # Kind cluster name
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        # Check if Kind cluster exists
+                        if ! kind get clusters | grep -q "\${KIND_CLUSTER}"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping verification."
+                            exit 0
+                        fi
+
+                        echo "=== Verifying deployment in namespace ${NAMESPACE} ==="
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get pods -n ${NAMESPACE}
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get svc -n ${NAMESPACE}
+                    """
+                }
+            }
+        }
+
     }
 
     post {
