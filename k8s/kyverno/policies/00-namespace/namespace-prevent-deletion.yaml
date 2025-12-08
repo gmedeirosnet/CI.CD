@@ -1,0 +1,42 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: namespace-prevent-deletion
+  annotations:
+    policies.kyverno.io/title: Prevent Observability Namespace Deletion
+    policies.kyverno.io/category: Namespace Protection
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Prevents deletion of the observability namespaces to protect critical
+      application resources. This ensures the main application namespace
+      cannot be accidentally or intentionally deleted, which would cause
+      service disruption.
+    policies.kyverno.io/minversion: 1.6.0
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: block-namespace-deletion
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - argocd
+                - logging
+                - monitoring
+      validate:
+        message: >-
+          Deletion of namespace is not allowed. This namespace contains
+          critical application resources and is protected from deletion.
+          If you need to delete this namespace, please contact your
+          cluster administrator.
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.operation || '' }}"
+                operator: Equals
+                value: DELETE

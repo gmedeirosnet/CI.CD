@@ -23,6 +23,7 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Kind (K8s in Docker)** - Local Kubernetes clusters for development and testing
 - **Helm Charts** - Kubernetes package manager
 - **Kyverno** - Kubernetes-native policy engine for security and compliance
+- **Policy Reporter** - Kyverno policy violation monitoring and reporting
 
 ### Code Quality & Observability
 - **SonarQube** - Code quality and security analysis
@@ -66,9 +67,26 @@ CI.CD/
 │   ├── kyverno/                # Kyverno policy engine
 │   │   ├── README.md           # Kyverno setup and usage guide
 │   │   ├── install/            # Installation scripts and Helm values
+│   │   │   ├── kyverno-values.yaml
+│   │   │   └── setup-kyverno.sh
 │   │   ├── policies/           # Policy definitions (Audit mode)
+│   │   │   ├── 00-namespace/   # Namespace protection policies
+│   │   │   ├── 10-security/    # Security policies (non-root, no privileged, ro-rootfs)
+│   │   │   ├── 20-resources/   # Resource limit policies
+│   │   │   ├── 30-registry/    # Harbor registry enforcement
+│   │   │   └── 40-labels/      # Default label policies
 │   │   ├── tests/              # Policy testing suite
-│   │   └── monitoring/         # Violation reports and metrics
+│   │   │   ├── valid/          # Valid test manifests
+│   │   │   ├── invalid/        # Invalid test manifests
+│   │   │   └── run-tests.sh    # Test execution script
+│   │   ├── monitoring/         # Violation reports and metrics
+│   │   │   ├── view-violations.sh
+│   │   │   └── prometheus-servicemonitor.yaml
+│   │   └── policy-reporter/    # Policy violation dashboard
+│   │       ├── docker-compose.yml        # Policy Reporter services
+│   │       ├── policy-reporter-config.yaml  # Backend configuration
+│   │       ├── ui-config.yaml           # UI configuration with cluster proxy
+│   │       └── install-policy-reporter.sh   # Installation script
 │   ├── grafana/                # Monitoring stack
 │   ├── prometheus/             # Metrics collection
 │   └── sample-app/             # Sample deployments
@@ -101,18 +119,23 @@ The fastest way to get started:
 ./k8s/k8s-permissions_port-forward.sh start
 
 # 4. Access the services:
-# - Jenkins:    http://localhost:8080
-# - Harbor:     http://localhost:8082
-# - SonarQube:  http://localhost:8090
-# - Grafana:    http://localhost:3000
-# - Prometheus: http://localhost:30090
-# - Loki:       http://localhost:31000
-# - ArgoCD:     https://localhost:8090
+# - Jenkins:          http://localhost:8080
+# - Harbor:           http://localhost:8082
+# - SonarQube:        http://localhost:8090
+# - Grafana:          http://localhost:3000
+# - Prometheus:       http://localhost:30090
+# - Loki:             http://localhost:31000
+# - ArgoCD:           https://localhost:8090
+# - Policy Reporter:  http://localhost:31002 (UI)
+# - Policy Reporter:  http://localhost:31001 (API)
 
-# 5. (Optional) Install Kyverno policy engine:
+# 5. (Optional) Install Kyverno policy engine with Policy Reporter:
 cd k8s/kyverno
 ./install/setup-kyverno.sh
 kubectl apply -f policies/ -R
+# Install Policy Reporter for violation monitoring:
+cd policy-reporter
+./install-policy-reporter.sh
 ```
 
 **Port Forwarding Management:**
@@ -222,7 +245,13 @@ If you prefer step-by-step setup:
    - Verify datasources: Loki and Prometheus should be pre-configured
    - Import dashboards or create custom queries
 
-6. **Run your first pipeline**
+6. **Access Policy Reporter** at http://localhost:31002 (optional)
+   - View Kyverno policy violations in real-time
+   - Monitor cluster compliance status
+   - Filter violations by namespace, policy, and severity
+   - API available at http://localhost:31001
+
+7. **Run your first pipeline**
    - Create Jenkins pipeline from Jenkinsfile
    - Trigger build
    - Watch it build → test → push to Harbor → deploy to Kind
@@ -277,35 +306,53 @@ Developer → GitHub → Jenkins → Maven → SonarQube
                          ↓
                     Docker Build → Harbor
                          ↓
-                    Helm Package → ArgoCD → Kind K8s
-                                                ↓
-                                    ┌───────────┴────────────┐
-                                    ↓                        ↓
-                                Application             Kyverno Policies
-                                    ↓                   (validation/mutation)
-                                    ↓                        ↓
-                                Monitoring              Compliance Reports
-                            ┌────────┴────────┐
-                            ↓                 ↓
-                      Logs (Loki)      Metrics (Prometheus)
-                            └────────┬────────┘
-                                     ↓
-                                 Grafana
-                            (on Docker Desktop)
+                    Kind Image Load → Helm Package → ArgoCD → Kind K8s
+                                                                 ↓
+                                               ┌─────────────────┴─────────────────┐
+                                               ↓                                   ↓
+                                          Application                      Kyverno Policies
+                                               ↓                         (validation/audit)
+                                               ↓                               ↓
+                                          Monitoring                    Policy Reports
+                                   ┌──────────┴──────────┐              ┌─────┴─────┐
+                                   ↓                     ↓              ↓           ↓
+                            Logs (Loki)         Metrics (Prometheus)   Reporter   Metrics
+                                   └──────────┬──────────┘              ↓
+                                              ↓                         ↓
+                                         Grafana                 Policy Reporter UI
+                                   (Docker Desktop)              (localhost:31002)
+                                   localhost:3000                http://localhost:31002
 ```
 
-## Key Features## Key Features
+### Pipeline Stages
 
-- **Complete CI/CD Pipeline** - From code commit to Kubernetes deployment
+1. **Source Control** - GitHub repository with branch protection
+2. **Build** - Maven compilation and unit tests
+3. **Quality Gate** - SonarQube code analysis
+4. **Containerization** - Docker image build and tag
+5. **Registry** - Push to Harbor with vulnerability scanning
+6. **Image Loading** - Load images into Kind cluster nodes
+7. **Packaging** - Helm chart update with new image tag
+8. **GitOps Sync** - ArgoCD deploys to Kubernetes
+9. **Policy Validation** - Kyverno validates resources (Audit mode)
+10. **Monitoring** - Logs to Loki, metrics to Prometheus, violations to Policy Reporter
+11. **Visualization** - Grafana dashboards and Policy Reporter UI
+
+## Key Features
+
+- **Complete CI/CD Pipeline** - From code commit to Kubernetes deployment with automated image loading
 - **Observability Stack** - Integrated logging (Loki) and metrics (Prometheus) with Grafana visualization
+- **Policy Enforcement** - Kyverno policy engine in Audit mode with Policy Reporter dashboard for compliance monitoring
 - **Hands-on Labs** - Practical exercises for each tool
 - **Real-world Application** - Spring Boot demo application
-- **GitOps Workflow** - ArgoCD-based deployment automation
-- **Container Registry** - Harbor with security scanning
-- **Code Quality Gates** - SonarQube integration
-- **Local Kubernetes** - Kind cluster for safe testing
+- **GitOps Workflow** - ArgoCD-based deployment automation with auto-sync
+- **Container Registry** - Harbor with security scanning and robot accounts
+- **Code Quality Gates** - SonarQube integration with quality profiles
+- **Local Kubernetes** - Kind cluster with multi-node setup for safe testing
 - **Automated Setup** - Scripts for quick environment provisioning
 - **Comprehensive Documentation** - Step-by-step guides and troubleshooting
+- **Policy as Code** - 8+ Kyverno policies covering security, resources, registry, and namespace protection
+- **Violation Monitoring** - Real-time policy violation tracking with Policy Reporter UI and API
 
 ## Key Resources
 
@@ -380,7 +427,7 @@ CI.CD/
 │   └── cicd-demo/
 │
 ├── k8s/                  # Kubernetes configurations
-│   ├── kyverno/         # Kyverno policy engine (NEW)
+│   ├── kyverno/         # Kyverno policy engine
 │   │   ├── README.md   # Complete setup and usage guide
 │   │   ├── install/
 │   │   │   ├── kyverno-values.yaml
@@ -395,9 +442,14 @@ CI.CD/
 │   │   │   ├── valid/
 │   │   │   ├── invalid/
 │   │   │   └── run-tests.sh
-│   │   └── monitoring/
-│   │       ├── view-violations.sh
-│   │       └── prometheus-servicemonitor.yaml
+│   │   ├── monitoring/
+│   │   │   ├── view-violations.sh
+│   │   │   └── prometheus-servicemonitor.yaml
+│   │   └── policy-reporter/   # Policy violation dashboard
+│   │       ├── docker-compose.yml
+│   │       ├── policy-reporter-config.yaml
+│   │       ├── ui-config.yaml
+│   │       └── install-policy-reporter.sh
 │   ├── grafana/         # Grafana, Loki & Promtail setup
 │   │   ├── docker-compose.yml
 │   │   ├── setup-grafana-docker.sh
@@ -452,19 +504,23 @@ CI.CD/
 
 After completing this lab, you will be able to:
 - Build and containerize applications with Docker
-- Create automated CI/CD pipelines with Jenkins
+- Create automated CI/CD pipelines with Jenkins (11+ stages)
 - Deploy to Kubernetes using GitOps (ArgoCD)
-- Manage container images with Harbor registry
+- Manage container images with Harbor registry and robot accounts
 - Implement code quality gates with SonarQube
 - Monitor applications with Prometheus metrics
 - Aggregate and query logs with Loki
 - Visualize data with Grafana dashboards
 - Use Helm for Kubernetes package management
-- Implement policy-as-code with Kyverno
-- Enforce security and compliance policies
-- Manage infrastructure as code
+- Implement policy-as-code with Kyverno (8+ policies)
+- Monitor policy violations with Policy Reporter UI and API
+- Enforce security and compliance policies in Audit mode
+- Load container images directly into Kind cluster nodes
+- Manage infrastructure as code with Git
 - Troubleshoot containerized applications
 - Follow DevOps best practices and security standards
+- Integrate monitoring across the entire pipeline
+- Use ArgoCD for automated deployments with auto-sync and self-healing
 
 ## Guidelines
 
