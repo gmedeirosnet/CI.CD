@@ -442,7 +442,8 @@ pipeline {
                         echo "Validating YAML syntax..."
                         for file in \$(find \${POLICIES_PATH} -name "*.yaml" -o -name "*.yml"); do
                             echo "  Checking: \$file"
-                            kubectl apply --dry-run=client -f \$file || exit 1
+                            # Copy file to Kind control plane and validate
+                            docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply --dry-run=client -f - < \$file || exit 1
                         done
                         echo "✓ All policy files are valid"
                         echo ""
