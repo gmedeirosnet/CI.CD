@@ -464,7 +464,7 @@ pipeline {
                             else
                                 echo "WARNING: ArgoCD Application manifest not found"
                                 echo "Applying policies directly..."
-                                docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f - < <(find \${POLICIES_PATH} -name "*.yaml" -exec cat {} \\;)
+                                find \${POLICIES_PATH} -name "*.yaml" -exec cat {} \\; | docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f -
                                 exit 0
                             fi
                         fi
