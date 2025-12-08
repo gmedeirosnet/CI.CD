@@ -2,7 +2,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: namespace-prevent-deletion
+  name: namespace-prevent-eletion
   annotations:
     policies.kyverno.io/title: Prevent Observability Namespace Deletion
     policies.kyverno.io/category: Namespace Protection
