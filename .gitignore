@@ -250,7 +250,7 @@ generate-release-notes.sh
 *.db
 
 # Package Managers
-package-lock.json
+# package-lock.json should be committed for reproducible builds in CI/CD
 yarn.lock
 Gemfile.lock
 
