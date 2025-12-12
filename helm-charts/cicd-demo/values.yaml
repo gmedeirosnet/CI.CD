@@ -204,3 +204,30 @@ resources:
   requests:
     cpu: 250m
     memory: 256Mi
+
+# PostgreSQL Database
+postgres:
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+
+  # Database configuration
+  database: cicd_demo
+  username: postgres
+  password: postgres123  # Will be base64 encoded in secret
+
+  # Storage
+  storage: 2Gi
+  storageClass: ""  # Use default storage class
+
+  # Resource limits
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
