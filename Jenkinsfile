@@ -639,9 +639,109 @@ pipeline {
                             exit 0
                         fi
 
-                        echo "=== Verifying deployment in namespace ${NAMESPACE} ==="
+                        echo "========================================="
+                        echo "=== Verifying Full Stack Deployment ==="
+                        echo "========================================="
+                        echo ""
+
+                        echo "=== Pod Status ==="
                         docker exec \${KIND_CLUSTER}-control-plane kubectl get pods -n ${NAMESPACE}
+                        echo ""
+
+                        echo "=== Services ==="
                         docker exec \${KIND_CLUSTER}-control-plane kubectl get svc -n ${NAMESPACE}
+                        echo ""
+
+                        echo "=== StatefulSets (PostgreSQL) ==="
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset -n ${NAMESPACE}
+                        echo ""
+
+                        # Wait for PostgreSQL to be ready
+                        echo "=== Checking PostgreSQL Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ PostgreSQL StatefulSet found"
+                            
+                            # Wait for PostgreSQL pod to be ready (max 60 seconds)
+                            echo "Waiting for PostgreSQL to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n ${NAMESPACE} --timeout=60s || \
+                                echo "⚠ Warning: PostgreSQL pod not ready within timeout"
+                            
+                            # Verify PostgreSQL service
+                            if docker exec \${KIND_CLUSTER}-control-plane kubectl get svc postgres -n ${NAMESPACE} >/dev/null 2>&1; then
+                                echo "✓ PostgreSQL service is available"
+                            else
+                                echo "❌ ERROR: PostgreSQL service not found!"
+                                exit 1
+                            fi
+                        else
+                            echo "❌ ERROR: PostgreSQL StatefulSet not found!"
+                            echo "This deployment requires PostgreSQL. Check Helm chart configuration."
+                            exit 1
+                        fi
+                        echo ""
+
+                        # Wait for Backend to be ready
+                        echo "=== Checking Backend Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Backend deployment found"
+                            
+                            echo "Waiting for backend pods to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cicd-demo-backend -n ${NAMESPACE} --timeout=120s || \
+                                echo "⚠ Warning: Backend pods not ready within timeout"
+                        else
+                            echo "⚠ Warning: Backend deployment not found"
+                        fi
+                        echo ""
+
+                        # Wait for Frontend to be ready
+                        echo "=== Checking Frontend Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Frontend deployment found"
+                            
+                            echo "Waiting for frontend pods to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cicd-demo-frontend -n ${NAMESPACE} --timeout=60s || \
+                                echo "⚠ Warning: Frontend pods not ready within timeout"
+                        else
+                            echo "⚠ Warning: Frontend deployment not found"
+                        fi
+                        echo ""
+
+                        # Summary
+                        echo "========================================="
+                        echo "=== Deployment Summary ==="
+                        echo "========================================="
+                        
+                        BACKEND_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        BACKEND_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+                        
+                        FRONTEND_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        FRONTEND_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+                        
+                        POSTGRES_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        POSTGRES_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
+                        echo "Backend:    \${BACKEND_READY}/\${BACKEND_DESIRED} pods ready"
+                        echo "Frontend:   \${FRONTEND_READY}/\${FRONTEND_DESIRED} pods ready"
+                        echo "PostgreSQL: \${POSTGRES_READY}/\${POSTGRES_DESIRED} pods ready"
+                        echo ""
+
+                        # Check if all components are ready
+                        if [ "\${BACKEND_READY}" -eq "\${BACKEND_DESIRED}" ] && [ "\${FRONTEND_READY}" -eq "\${FRONTEND_DESIRED}" ] && [ "\${POSTGRES_READY}" -eq "\${POSTGRES_DESIRED}" ]; then
+                            echo "✅ All components are ready!"
+                            echo ""
+                            echo "Access Points:"
+                            echo "  - Frontend UI: http://localhost:30080"
+                            echo "  - Backend API: Internal ClusterIP (port 8001)"
+                            echo "  - PostgreSQL: Internal ClusterIP (port 5432)"
+                        else
+                            echo "⚠️  Warning: Not all components are ready. Check pod logs for details."
+                            echo ""
+                            echo "Troubleshooting commands:"
+                            echo "  kubectl logs -n ${NAMESPACE} -l app.kubernetes.io/name=cicd-demo-backend"
+                            echo "  kubectl logs -n ${NAMESPACE} -l app.kubernetes.io/name=cicd-demo-frontend"
+                            echo "  kubectl logs -n ${NAMESPACE} postgres-0"
+                        fi
+                        echo ""
                     """
                 }
             }
