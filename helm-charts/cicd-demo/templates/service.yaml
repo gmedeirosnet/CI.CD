@@ -1,3 +1,5 @@
+{{- if false }}
+{{- /* Legacy service - disabled in favor of backend-service.yaml and frontend-service.yaml */ -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,3 +15,4 @@ spec:
       name: http
   selector:
     {{- include "cicd-demo.selectorLabels" . | nindent 4 }}
+{{- end }}
