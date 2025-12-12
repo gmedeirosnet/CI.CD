@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { taskApi, Task } from './api/taskApi';
+import { taskApi } from './api/taskApi';
 
 const queryClient = new QueryClient();
 
