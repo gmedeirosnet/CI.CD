@@ -48,6 +48,19 @@ backend:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
+    readOnlyRootFilesystem: true
+
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: app-logs
+      mountPath: /app/logs
+
+  volumes:
+    - name: tmp
+      emptyDir: {}
+    - name: app-logs
+      emptyDir: {}
 
   livenessProbe:
     httpGet:
@@ -93,6 +106,23 @@ frontend:
     runAsNonRoot: true
     runAsUser: 101
     fsGroup: 101
+    readOnlyRootFilesystem: true
+
+  volumeMounts:
+    - name: nginx-cache
+      mountPath: /var/cache/nginx
+    - name: nginx-run
+      mountPath: /var/run
+    - name: tmp
+      mountPath: /tmp
+
+  volumes:
+    - name: nginx-cache
+      emptyDir: {}
+    - name: nginx-run
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}
 
   livenessProbe:
     httpGet:
