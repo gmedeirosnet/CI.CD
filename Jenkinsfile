@@ -246,13 +246,96 @@ pipeline {
             }
         }
 
+        stage('Build Frontend Image') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Building Frontend Image ==="
+                        cd frontend
+
+                        # Build multi-stage Docker image
+                        docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} .
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} \
+                                   ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest
+
+                        echo "✅ Frontend image built successfully"
+                    """
+                }
+            }
+        }
+
+        stage('Push Frontend to Harbor') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials',
+                                                     usernameVariable: 'HARBOR_USER',
+                                                     passwordVariable: 'HARBOR_PASS')]) {
+                        sh """
+                            echo "=== Pushing Frontend Image to Harbor ==="
+                            echo \$HARBOR_PASS | docker login ${HARBOR_REGISTRY} -u \$HARBOR_USER --password-stdin
+                            docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG}
+                            docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest
+                            echo "✅ Frontend image pushed to Harbor"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Load Frontend into Kind') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Loading Frontend images into Kind cluster ==="
+
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping image load."
+                            exit 0
+                        fi
+
+                        echo "Found Kind cluster: \${KIND_CLUSTER}"
+
+                        # Tag images with host.docker.internal for Kind
+                        echo "Tagging frontend images for Kind..."
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/frontend:${IMAGE_TAG}
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/frontend:latest
+
+                        # Get all Kind cluster nodes
+                        KIND_NODES=\$(docker ps --filter "name=\${KIND_CLUSTER}" --format '{{.Names}}')
+
+                        for NODE in \$KIND_NODES; do
+                            echo "Loading frontend images into node: \$NODE"
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/frontend:latest | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                        done
+
+                        echo "✅ Frontend images successfully loaded into Kind cluster"
+
+                        # Verify images are loaded
+                        docker exec \${KIND_CLUSTER}-control-plane crictl images | grep ${HARBOR_PROJECT}/frontend || echo "Frontend image verification: check manually"
+                    """
+                }
+            }
+        }
+
         stage('Update Helm Chart') {
             steps {
                 script {
                     sh """
                         cd helm-charts/cicd-demo
-                        sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
-                        cat values.yaml | grep tag:
+
+                        # Update both backend and frontend image tags
+                        sed -i '/backend:/,/image:/{ s/tag: .*/tag: "${IMAGE_TAG}"/; }' values.yaml
+                        sed -i '/frontend:/,/image:/{ s/tag: .*/tag: "${IMAGE_TAG}"/; }' values.yaml
+
+                        echo "Updated Helm values:"
+                        grep -A2 "image:" values.yaml || cat values.yaml | grep tag:
                     """
                 }
             }
