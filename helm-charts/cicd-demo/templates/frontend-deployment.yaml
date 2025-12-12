@@ -34,10 +34,22 @@ spec:
         ports:
         - containerPort: {{ .Values.frontend.service.containerPort }}
           name: http
+        {{- if .Values.frontend.securityContext.readOnlyRootFilesystem }}
+        securityContext:
+          readOnlyRootFilesystem: {{ .Values.frontend.securityContext.readOnlyRootFilesystem }}
+        {{- end }}
+        {{- if .Values.frontend.volumeMounts }}
+        volumeMounts:
+        {{- toYaml .Values.frontend.volumeMounts | nindent 8 }}
+        {{- end }}
         resources:
           {{- toYaml .Values.frontend.resources | nindent 10 }}
         livenessProbe:
           {{- toYaml .Values.frontend.livenessProbe | nindent 10 }}
         readinessProbe:
           {{- toYaml .Values.frontend.readinessProbe | nindent 10 }}
+      {{- if .Values.frontend.volumes }}
+      volumes:
+      {{- toYaml .Values.frontend.volumes | nindent 6 }}
+      {{- end }}
 {{- end }}

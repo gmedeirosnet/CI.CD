@@ -36,10 +36,22 @@ spec:
           name: http
         env:
         {{- toYaml .Values.backend.env | nindent 8 }}
+        {{- if .Values.backend.securityContext.readOnlyRootFilesystem }}
+        securityContext:
+          readOnlyRootFilesystem: {{ .Values.backend.securityContext.readOnlyRootFilesystem }}
+        {{- end }}
+        {{- if .Values.backend.volumeMounts }}
+        volumeMounts:
+        {{- toYaml .Values.backend.volumeMounts | nindent 8 }}
+        {{- end }}
         resources:
           {{- toYaml .Values.backend.resources | nindent 10 }}
         livenessProbe:
           {{- toYaml .Values.backend.livenessProbe | nindent 10 }}
         readinessProbe:
           {{- toYaml .Values.backend.readinessProbe | nindent 10 }}
+      {{- if .Values.backend.volumes }}
+      volumes:
+      {{- toYaml .Values.backend.volumes | nindent 6 }}
+      {{- end }}
 {{- end }}
