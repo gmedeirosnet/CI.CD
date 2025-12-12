@@ -356,9 +356,14 @@ pipeline {
                             exit 0
                         fi
 
-                        # Create namespace if it doesn't exist (using docker exec to run kubectl in Kind control plane)
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} 2>/dev/null || \
-                            echo "Namespace ${NAMESPACE} already exists or created"
+                        # Check if namespace exists, create if it doesn't
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Namespace ${NAMESPACE} already exists"
+                        else
+                            echo "Creating namespace ${NAMESPACE}..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE}
+                            echo "✓ Namespace ${NAMESPACE} created successfully"
+                        fi
 
                         # Create Harbor registry secret in the namespace
                         docker exec \${KIND_CLUSTER}-control-plane kubectl create secret docker-registry harbor-cred \
