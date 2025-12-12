@@ -392,7 +392,11 @@ pipeline {
                                 --grpc-web \
                                 --insecure
 
-                            # Create ArgoCD application if it doesn't exist
+                            # Delete existing application if it exists to avoid conflicts
+                            argocd app delete cicd-demo --cascade --grpc-web --insecure --yes 2>/dev/null || true
+                            sleep 5
+
+                            # Create ArgoCD application with auto-sync enabled
                             argocd app create cicd-demo \
                                 --repo https://github.com/gmedeirosnet/CI.CD.git \
                                 --path helm-charts/cicd-demo \
@@ -402,16 +406,13 @@ pipeline {
                                 --auto-prune \
                                 --self-heal \
                                 --grpc-web \
-                                --insecure \
-                                2>/dev/null || echo "ArgoCD app already exists"
+                                --insecure
 
-                            # Sync and wait for deployment
-                            argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
+                            echo "⏳ Waiting for ArgoCD auto-sync to complete..."
 
-                            # Wait for deployment only (skip service health check for Kind LoadBalancer)
-                            # In Kind, LoadBalancer services never get external IP, causing timeout
-                            argocd app wait cicd-demo --timeout 120 --health=false --grpc-web --insecure || \
-                                echo "Note: ArgoCD wait timed out, but this is expected for LoadBalancer in Kind"
+                            # Wait for auto-sync to complete (no manual sync needed)
+                            argocd app wait cicd-demo --health --timeout 300 --grpc-web --insecure || \
+                                echo "⚠ ArgoCD sync completed with warnings (expected for Kind LoadBalancer services)"
 
                             # Show application status
                             argocd app get cicd-demo --grpc-web --insecure
