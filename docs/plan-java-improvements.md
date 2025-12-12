@@ -1,7 +1,7 @@
 # Java Application Enhancement Plan
 ## From Simple Demo to Full-Stack Microservices Architecture
 
-**Created:** December 12, 2025  
+**Created:** December 12, 2025
 **Objective:** Transform the current simple Spring Boot demo into a production-like full-stack application with database persistence, demonstrating real-world CI/CD patterns.
 
 ---
@@ -15,7 +15,7 @@ This plan outlines the evolution of the `cicd-demo` application from a stateless
 - **Frontend**: React 18 with TypeScript (SPA served via Nginx)
 - **Architecture**: Microservices deployed on existing Kind cluster with full observability
 
-**Timeline:** 4-6 hours of implementation  
+**Timeline:** 4-6 hours of implementation
 **Complexity:** Intermediate to Advanced
 
 ---
@@ -429,14 +429,14 @@ import java.util.List;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    
+
     List<Task> findByStatus(TaskStatus status);
-    
+
     List<Task> findByStatusOrderByPriorityDescCreatedAtDesc(TaskStatus status);
-    
+
     @Query("SELECT t FROM Task t WHERE t.status != 'CANCELLED' ORDER BY t.priority DESC, t.createdAt DESC")
     List<Task> findActiveTasksOrderedByPriority();
-    
+
     long countByStatus(TaskStatus status);
 }
 ```
@@ -727,8 +727,8 @@ function TaskApp() {
     },
   });
 
-  const filteredTasks = filter === 'all' 
-    ? tasks 
+  const filteredTasks = filter === 'all'
+    ? tasks
     : tasks.filter(task => task.status === filter);
 
   return (
@@ -961,14 +961,14 @@ backend:
     repository: host.docker.internal:8082/cicd-demo/app
     tag: latest
     pullPolicy: Always
-  
+
   replicaCount: 2
-  
+
   service:
     type: ClusterIP
     port: 8001
     targetPort: 8001
-  
+
   env:
     - name: DB_HOST
       value: postgres
@@ -986,7 +986,7 @@ backend:
           key: POSTGRES_PASSWORD
     - name: SPRING_PROFILES_ACTIVE
       value: production
-  
+
   resources:
     requests:
       memory: "512Mi"
@@ -994,19 +994,19 @@ backend:
     limits:
       memory: "1Gi"
       cpu: "1000m"
-  
+
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
-  
+
   livenessProbe:
     httpGet:
       path: /actuator/health/liveness
       port: 8001
     initialDelaySeconds: 60
     periodSeconds: 10
-  
+
   readinessProbe:
     httpGet:
       path: /actuator/health/readiness
@@ -1022,15 +1022,15 @@ frontend:
     repository: host.docker.internal:8082/cicd-demo/frontend
     tag: latest
     pullPolicy: Always
-  
+
   replicaCount: 2
-  
+
   service:
     type: NodePort
     port: 80
     targetPort: 80
     nodePort: 30080
-  
+
   resources:
     requests:
       memory: "128Mi"
@@ -1038,19 +1038,19 @@ frontend:
     limits:
       memory: "256Mi"
       cpu: "250m"
-  
+
   securityContext:
     runAsNonRoot: true
     runAsUser: 101  # nginx user in alpine
     fsGroup: 101
-  
+
   livenessProbe:
     httpGet:
       path: /health
       port: 80
     initialDelaySeconds: 10
     periodSeconds: 10
-  
+
   readinessProbe:
     httpGet:
       path: /health
@@ -1095,8 +1095,8 @@ stage('Build Frontend Image') {
 stage('Push Frontend to Harbor') {
     steps {
         script {
-            withCredentials([usernamePassword(credentialsId: 'harbor-credentials', 
-                                             usernameVariable: 'HARBOR_USER', 
+            withCredentials([usernamePassword(credentialsId: 'harbor-credentials',
+                                             usernameVariable: 'HARBOR_USER',
                                              passwordVariable: 'HARBOR_PASS')]) {
                 sh """
                     echo \$HARBOR_PASS | docker login \${HARBOR_REGISTRY} -u \$HARBOR_USER --password-stdin
@@ -1265,20 +1265,20 @@ describe('Task Management', () => {
 ```java
 @Service
 public class TaskService {
-    
+
     private final MeterRegistry meterRegistry;
-    
+
     @Autowired
     public TaskService(TaskRepository taskRepository, MeterRegistry meterRegistry) {
         this.taskRepository = taskRepository;
         this.meterRegistry = meterRegistry;
-        
+
         // Register custom gauges
         Gauge.builder("tasks.count.total", taskRepository, TaskRepository::count)
              .description("Total number of tasks")
              .register(meterRegistry);
     }
-    
+
     public Task save(Task task) {
         Task saved = taskRepository.save(task);
         meterRegistry.counter("tasks.created", "status", task.getStatus().name()).increment();
