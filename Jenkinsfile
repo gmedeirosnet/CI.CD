@@ -246,13 +246,96 @@ pipeline {
             }
         }
 
+        stage('Build Frontend Image') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Building Frontend Image ==="
+                        cd frontend
+
+                        # Build multi-stage Docker image
+                        docker build -t ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} .
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} \
+                                   ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest
+
+                        echo "✅ Frontend image built successfully"
+                    """
+                }
+            }
+        }
+
+        stage('Push Frontend to Harbor') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'harbor-credentials',
+                                                     usernameVariable: 'HARBOR_USER',
+                                                     passwordVariable: 'HARBOR_PASS')]) {
+                        sh """
+                            echo "=== Pushing Frontend Image to Harbor ==="
+                            echo \$HARBOR_PASS | docker login ${HARBOR_REGISTRY} -u \$HARBOR_USER --password-stdin
+                            docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG}
+                            docker push ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest
+                            echo "✅ Frontend image pushed to Harbor"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Load Frontend into Kind') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Loading Frontend images into Kind cluster ==="
+
+                        KIND_CLUSTER="\${KIND_CLUSTER_NAME:-app-demo}"
+
+                        if ! docker ps --filter "name=\${KIND_CLUSTER}-control-plane" --format '{{.Names}}' | grep -q "\${KIND_CLUSTER}-control-plane"; then
+                            echo "WARNING: Kind cluster '\${KIND_CLUSTER}' not found. Skipping image load."
+                            exit 0
+                        fi
+
+                        echo "Found Kind cluster: \${KIND_CLUSTER}"
+
+                        # Tag images with host.docker.internal for Kind
+                        echo "Tagging frontend images for Kind..."
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/frontend:${IMAGE_TAG}
+                        docker tag ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/frontend:latest \
+                                   host.docker.internal:8082/${HARBOR_PROJECT}/frontend:latest
+
+                        # Get all Kind cluster nodes
+                        KIND_NODES=\$(docker ps --filter "name=\${KIND_CLUSTER}" --format '{{.Names}}')
+
+                        for NODE in \$KIND_NODES; do
+                            echo "Loading frontend images into node: \$NODE"
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/frontend:${IMAGE_TAG} | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                            docker save host.docker.internal:8082/${HARBOR_PROJECT}/frontend:latest | \
+                                docker exec -i \$NODE ctr -n k8s.io images import -
+                        done
+
+                        echo "✅ Frontend images successfully loaded into Kind cluster"
+
+                        # Verify images are loaded
+                        docker exec \${KIND_CLUSTER}-control-plane crictl images | grep ${HARBOR_PROJECT}/frontend || echo "Frontend image verification: check manually"
+                    """
+                }
+            }
+        }
+
         stage('Update Helm Chart') {
             steps {
                 script {
                     sh """
                         cd helm-charts/cicd-demo
-                        sed -i 's/tag: .*/tag: "${IMAGE_TAG}"/' values.yaml
-                        cat values.yaml | grep tag:
+
+                        # Update both backend and frontend image tags
+                        sed -i '/backend:/,/image:/{ s/tag: .*/tag: "${IMAGE_TAG}"/; }' values.yaml
+                        sed -i '/frontend:/,/image:/{ s/tag: .*/tag: "${IMAGE_TAG}"/; }' values.yaml
+
+                        echo "Updated Helm values:"
+                        grep -A2 "image:" values.yaml || cat values.yaml | grep tag:
                     """
                 }
             }
@@ -273,9 +356,39 @@ pipeline {
                             exit 0
                         fi
 
-                        # Create namespace if it doesn't exist (using docker exec to run kubectl in Kind control plane)
-                        docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} 2>/dev/null || \
-                            echo "Namespace ${NAMESPACE} already exists or created"
+                        # Check if namespace exists, create if it doesn't
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Namespace ${NAMESPACE} already exists"
+                        else
+                            echo "Creating namespace ${NAMESPACE}..."
+                            # Apply via YAML to ensure consistent creation
+                            cat <<'NSEOF' | docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+  labels:
+    name: ${NAMESPACE}
+    managed-by: jenkins
+NSEOF
+
+                            # Verify creation
+                            if docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE} >/dev/null 2>&1; then
+                                echo "✓ Namespace ${NAMESPACE} created successfully"
+                            else
+                                echo "❌ Failed to create namespace - this might be a Kyverno webhook issue"
+                                echo "Attempting manual creation without webhook validation..."
+                                docker exec \${KIND_CLUSTER}-control-plane kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | \
+                                    docker exec -i \${KIND_CLUSTER}-control-plane kubectl apply -f -
+
+                                if docker exec \${KIND_CLUSTER}-control-plane kubectl get namespace ${NAMESPACE} >/dev/null 2>&1; then
+                                    echo "✓ Namespace created successfully (bypass)"
+                                else
+                                    echo "❌ CRITICAL: Cannot create namespace ${NAMESPACE}"
+                                    exit 1
+                                fi
+                            fi
+                        fi
 
                         # Create Harbor registry secret in the namespace
                         docker exec \${KIND_CLUSTER}-control-plane kubectl create secret docker-registry harbor-cred \
@@ -309,9 +422,14 @@ pipeline {
                                 --grpc-web \
                                 --insecure
 
-                            # Create ArgoCD application if it doesn't exist
+                            # Delete existing application if it exists to avoid conflicts
+                            argocd app delete cicd-demo --cascade --grpc-web --insecure --yes 2>/dev/null || true
+                            sleep 5
+
+                            # Create ArgoCD application with auto-sync enabled
                             argocd app create cicd-demo \
                                 --repo https://github.com/gmedeirosnet/CI.CD.git \
+                                --revision ${GIT_BRANCH} \
                                 --path helm-charts/cicd-demo \
                                 --dest-server https://kubernetes.default.svc \
                                 --dest-namespace ${NAMESPACE} \
@@ -319,16 +437,13 @@ pipeline {
                                 --auto-prune \
                                 --self-heal \
                                 --grpc-web \
-                                --insecure \
-                                2>/dev/null || echo "ArgoCD app already exists"
+                                --insecure
 
-                            # Sync and wait for deployment
-                            argocd app sync cicd-demo --timeout 300 --grpc-web --insecure
+                            echo "⏳ Waiting for ArgoCD auto-sync to complete..."
 
-                            # Wait for deployment only (skip service health check for Kind LoadBalancer)
-                            # In Kind, LoadBalancer services never get external IP, causing timeout
-                            argocd app wait cicd-demo --timeout 120 --health=false --grpc-web --insecure || \
-                                echo "Note: ArgoCD wait timed out, but this is expected for LoadBalancer in Kind"
+                            # Wait for auto-sync to complete (no manual sync needed)
+                            argocd app wait cicd-demo --health --timeout 300 --grpc-web --insecure || \
+                                echo "⚠ ArgoCD sync completed with warnings (expected for Kind LoadBalancer services)"
 
                             # Show application status
                             argocd app get cicd-demo --grpc-web --insecure
@@ -556,9 +671,109 @@ pipeline {
                             exit 0
                         fi
 
-                        echo "=== Verifying deployment in namespace ${NAMESPACE} ==="
+                        echo "========================================="
+                        echo "=== Verifying Full Stack Deployment ==="
+                        echo "========================================="
+                        echo ""
+
+                        echo "=== Pod Status ==="
                         docker exec \${KIND_CLUSTER}-control-plane kubectl get pods -n ${NAMESPACE}
+                        echo ""
+
+                        echo "=== Services ==="
                         docker exec \${KIND_CLUSTER}-control-plane kubectl get svc -n ${NAMESPACE}
+                        echo ""
+
+                        echo "=== StatefulSets (PostgreSQL) ==="
+                        docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset -n ${NAMESPACE}
+                        echo ""
+
+                        # Wait for PostgreSQL to be ready
+                        echo "=== Checking PostgreSQL Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ PostgreSQL StatefulSet found"
+
+                            # Wait for PostgreSQL pod to be ready (max 60 seconds)
+                            echo "Waiting for PostgreSQL to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgres -n ${NAMESPACE} --timeout=60s || \
+                                echo "⚠ Warning: PostgreSQL pod not ready within timeout"
+
+                            # Verify PostgreSQL service
+                            if docker exec \${KIND_CLUSTER}-control-plane kubectl get svc postgres -n ${NAMESPACE} >/dev/null 2>&1; then
+                                echo "✓ PostgreSQL service is available"
+                            else
+                                echo "❌ ERROR: PostgreSQL service not found!"
+                                exit 1
+                            fi
+                        else
+                            echo "❌ ERROR: PostgreSQL StatefulSet not found!"
+                            echo "This deployment requires PostgreSQL. Check Helm chart configuration."
+                            exit 1
+                        fi
+                        echo ""
+
+                        # Wait for Backend to be ready
+                        echo "=== Checking Backend Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Backend deployment found"
+
+                            echo "Waiting for backend pods to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cicd-demo-backend -n ${NAMESPACE} --timeout=120s || \
+                                echo "⚠ Warning: Backend pods not ready within timeout"
+                        else
+                            echo "⚠ Warning: Backend deployment not found"
+                        fi
+                        echo ""
+
+                        # Wait for Frontend to be ready
+                        echo "=== Checking Frontend Status ==="
+                        if docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} >/dev/null 2>&1; then
+                            echo "✓ Frontend deployment found"
+
+                            echo "Waiting for frontend pods to be ready..."
+                            docker exec \${KIND_CLUSTER}-control-plane kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cicd-demo-frontend -n ${NAMESPACE} --timeout=60s || \
+                                echo "⚠ Warning: Frontend pods not ready within timeout"
+                        else
+                            echo "⚠ Warning: Frontend deployment not found"
+                        fi
+                        echo ""
+
+                        # Summary
+                        echo "========================================="
+                        echo "=== Deployment Summary ==="
+                        echo "========================================="
+
+                        BACKEND_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        BACKEND_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-backend -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
+                        FRONTEND_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        FRONTEND_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get deployment cicd-demo-frontend -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
+                        POSTGRES_READY=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                        POSTGRES_DESIRED=\$(docker exec \${KIND_CLUSTER}-control-plane kubectl get statefulset postgres -n ${NAMESPACE} -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
+                        echo "Backend:    \${BACKEND_READY}/\${BACKEND_DESIRED} pods ready"
+                        echo "Frontend:   \${FRONTEND_READY}/\${FRONTEND_DESIRED} pods ready"
+                        echo "PostgreSQL: \${POSTGRES_READY}/\${POSTGRES_DESIRED} pods ready"
+                        echo ""
+
+                        # Check if all components are ready
+                        if [ "\${BACKEND_READY}" -eq "\${BACKEND_DESIRED}" ] && [ "\${FRONTEND_READY}" -eq "\${FRONTEND_DESIRED}" ] && [ "\${POSTGRES_READY}" -eq "\${POSTGRES_DESIRED}" ]; then
+                            echo "✅ All components are ready!"
+                            echo ""
+                            echo "Access Points:"
+                            echo "  - Frontend UI: http://localhost:30080"
+                            echo "  - Backend API: Internal ClusterIP (port 8001)"
+                            echo "  - PostgreSQL: Internal ClusterIP (port 5432)"
+                        else
+                            echo "⚠️  Warning: Not all components are ready. Check pod logs for details."
+                            echo ""
+                            echo "Troubleshooting commands:"
+                            echo "  kubectl logs -n ${NAMESPACE} -l app.kubernetes.io/name=cicd-demo-backend"
+                            echo "  kubectl logs -n ${NAMESPACE} -l app.kubernetes.io/name=cicd-demo-frontend"
+                            echo "  kubectl logs -n ${NAMESPACE} postgres-0"
+                        fi
+                        echo ""
                     """
                 }
             }

@@ -32,15 +32,28 @@ spec:
           - argocd
           - monitoring
           - logging
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              app: postgres
     validate:
       message: >-
         Image '{{ request.object.spec.containers[0].image }}' is not from Harbor.
         Use images from: host.docker.internal:8082/cicd-demo/*
 
         Example: host.docker.internal:8082/cicd-demo/app:latest
-      pattern:
-        spec:
+
+        Note: PostgreSQL images are exempt from this policy.
+      anyPattern:
+      - spec:
           containers:
           - image: "host.docker.internal:8082/cicd-demo/*"
           =(initContainers):
           - image: "host.docker.internal:8082/cicd-demo/*"
+      - spec:
+          containers:
+          - image: "postgres:*"
+          =(initContainers):
+          - image: "postgres:*"

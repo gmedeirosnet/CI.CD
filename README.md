@@ -31,6 +31,23 @@ This repository provides a complete learning experience for mastering DevOps CI/
 - **Loki** - Log aggregation and querying system
 - **Prometheus** - Metrics collection and time-series database
 
+## Application Architecture
+
+This lab includes a **full-stack production-grade application** demonstrating real-world CI/CD practices:
+
+### Three-Tier Architecture
+- **Database Layer**: PostgreSQL 16 with persistent storage (StatefulSet + PVC)
+- **Backend Layer**: Spring Boot 3.5.7 + Java 21 with JPA/Hibernate and REST API
+- **Frontend Layer**: React 19 + TypeScript + Vite with responsive UI
+
+### Key Features
+- **RESTful API**: 8 endpoints for task management (CRUD operations)
+- **Database Migrations**: Flyway for version-controlled schema management
+- **Data Persistence**: 2Gi PostgreSQL volume with sample data
+- **Modern Frontend**: React Query for state management, Tailwind CSS for styling
+- **Security**: Non-root containers, resource limits, Kyverno policy compliance
+- **Observability**: Actuator endpoints, Prometheus metrics, structured logging
+
 ## Repository Structure
 
 ```
@@ -61,9 +78,14 @@ CI.CD/
 │   ├── Project-Overview.md     # Detailed overview
 │   ├── Port-Reference.md       # All service ports and URLs
 │   ├── Troubleshooting.md      # Common issues and solutions
-│   └── StudyPlan.md            # Learning curriculum
+│   ├── StudyPlan.md            # Learning curriculum
+│   ├── FULLSTACK-DEPLOYMENT.md # Full-stack deployment guide
+│   ├── POSTGRES-TEST-REPORT.md # Database validation report
+│   └── DEPLOYMENT-TEST-RESULTS.md # Comprehensive test results
 │
 ├── k8s/                         # Kubernetes configurations
+│   ├── postgres/               # PostgreSQL database deployment
+│   │   └── postgres-statefulset.yaml
 │   ├── kyverno/                # Kyverno policy engine
 │   │   ├── README.md           # Kyverno setup and usage guide
 │   │   ├── install/            # Installation scripts and Helm values
@@ -136,6 +158,14 @@ kubectl apply -f policies/ -R
 # Install Policy Reporter for violation monitoring:
 cd policy-reporter
 ./install-policy-reporter.sh
+
+# 6. Deploy the full-stack application:
+./scripts/deploy-fullstack.sh
+# This deploys PostgreSQL with persistent storage
+
+# 7. Verify deployment:
+./scripts/test-deployment.sh
+# Runs 20 comprehensive tests
 ```
 
 **Port Forwarding Management:**
@@ -251,10 +281,27 @@ If you prefer step-by-step setup:
    - Filter violations by namespace, policy, and severity
    - API available at http://localhost:31001
 
-7. **Run your first pipeline**
+7. **Deploy PostgreSQL Database**
+   ```bash
+   ./scripts/deploy-fullstack.sh
+   ```
+   - Deploys PostgreSQL 16 with 2Gi persistent storage
+   - Creates cicd_demo database
+   - Runs comprehensive validation
+
+8. **Verify Database Deployment**
+   ```bash
+   ./scripts/test-deployment.sh
+   ```
+   - Runs 20 comprehensive tests
+   - Validates pod, service, connectivity, security, functionality
+
+9. **Run your first pipeline**
    - Create Jenkins pipeline from Jenkinsfile
    - Trigger build
-   - Watch it build → test → push to Harbor → deploy to Kind
+   - Watch it build backend (Spring Boot) → build frontend (React) → push to Harbor → deploy to Kind
+   - Flyway creates database schema on first backend startup
+   - Access frontend at http://localhost:30080
    - View logs in Grafana (Loki) and metrics in Prometheus
 
 ### Cleanup
@@ -341,10 +388,14 @@ Developer → GitHub → Jenkins → Maven → SonarQube
 ## Key Features
 
 - **Complete CI/CD Pipeline** - From code commit to Kubernetes deployment with automated image loading
+- **Full-Stack Application** - PostgreSQL + Spring Boot (JPA/REST) + React (TypeScript) production architecture
+- **Database Layer** - PostgreSQL 16 with StatefulSet, persistent volumes, and Flyway migrations
+- **Modern Backend** - Spring Boot 3.5.7, Java 21, REST API with 8 endpoints, Actuator metrics
+- **Modern Frontend** - React 19, TypeScript, Vite bundler, TanStack Query, Tailwind CSS
 - **Observability Stack** - Integrated logging (Loki) and metrics (Prometheus) with Grafana visualization
-- **Policy Enforcement** - Kyverno policy engine in Audit mode with Policy Reporter dashboard for compliance monitoring
+- **Policy Enforcement** - Kyverno policy engine in Audit mode with Policy Reporter dashboard
 - **Hands-on Labs** - Practical exercises for each tool
-- **Real-world Application** - Spring Boot demo application
+- **Real-world Patterns** - Multi-service deployment, database integration, API design
 - **GitOps Workflow** - ArgoCD-based deployment automation with auto-sync
 - **Container Registry** - Harbor with security scanning and robot accounts
 - **Code Quality Gates** - SonarQube integration with quality profiles
@@ -415,13 +466,33 @@ CI.CD/
 │
 ├── scripts/               # Automation scripts
 │   ├── setup-all.sh      # Complete environment setup
+│   ├── deploy-fullstack.sh # Deploy PostgreSQL + backend + frontend
+│   ├── verify-postgres.sh  # PostgreSQL health check
+│   ├── test-deployment.sh  # Comprehensive test suite (20 tests)
 │   ├── verify-environment.sh
 │   ├── cleanup-all.sh
 │   └── [Setup Scripts...]
 │
-├── src/                   # Demo Spring Boot application
-│   ├── main/java/
+├── src/                   # Full-stack Spring Boot application
+│   ├── main/
+│   │   ├── java/com/example/demo/
+│   │   │   ├── entity/        # JPA entities (Task)
+│   │   │   ├── repository/    # Data access layer
+│   │   │   ├── service/       # Business logic
+│   │   │   └── controller/    # REST API endpoints
+│   │   └── resources/
+│   │       ├── application.properties # Database config
+│   │       └── db/migration/  # Flyway SQL migrations
 │   └── test/java/
+│
+├── frontend/              # React TypeScript frontend
+│   ├── src/
+│   │   ├── App.tsx       # Main React application
+│   │   └── api/          # API client
+│   ├── Dockerfile        # Multi-stage build (Node + Nginx)
+│   ├── nginx.conf        # Nginx configuration
+│   ├── package.json      # NPM dependencies
+│   └── vite.config.ts    # Vite bundler config
 │
 ├── helm-charts/          # Kubernetes Helm charts
 │   └── cicd-demo/
@@ -503,12 +574,16 @@ CI.CD/
 ## Success Metrics
 
 After completing this lab, you will be able to:
-- Build and containerize applications with Docker
+- Build and containerize applications with Docker (multi-stage builds)
 - Create automated CI/CD pipelines with Jenkins (11+ stages)
-- Deploy to Kubernetes using GitOps (ArgoCD)
+- Deploy full-stack applications to Kubernetes using GitOps (ArgoCD)
+- **Design three-tier architectures** (Database + Backend + Frontend)
+- **Implement database persistence** with PostgreSQL and StatefulSets
+- **Build REST APIs** with Spring Boot, JPA, and Flyway migrations
+- **Create modern frontends** with React, TypeScript, and Vite
 - Manage container images with Harbor registry and robot accounts
 - Implement code quality gates with SonarQube
-- Monitor applications with Prometheus metrics
+- Monitor applications with Prometheus metrics and Actuator endpoints
 - Aggregate and query logs with Loki
 - Visualize data with Grafana dashboards
 - Use Helm for Kubernetes package management

@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cicd-demo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # Source repository
+  source:
+    repoURL: https://github.com/gmedeirosnet/CI.CD
+    targetRevision: Feature--Java-example-improvement
+    path: helm-charts/cicd-demo
+    helm:
+      valueFiles:
+        - values.yaml
+
+  # Destination cluster and namespace
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app-demo
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true      # Delete resources that are no longer defined in Git
+      selfHeal: true   # Automatically sync when the cluster state changes
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
