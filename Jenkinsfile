@@ -429,6 +429,7 @@ NSEOF
                             # Create ArgoCD application with auto-sync enabled
                             argocd app create cicd-demo \
                                 --repo https://github.com/gmedeirosnet/CI.CD.git \
+                                --revision ${GIT_BRANCH} \
                                 --path helm-charts/cicd-demo \
                                 --dest-server https://kubernetes.default.svc \
                                 --dest-namespace ${NAMESPACE} \
